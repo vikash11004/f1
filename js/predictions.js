@@ -33,6 +33,7 @@ import {
   navigateTo,
   showToast,
   showModal,
+  openSidePanel,
   debounce,
   formatRound
 } from './ui.js';
