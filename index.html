@@ -152,10 +152,10 @@
 
     // --- Initialize auth (starts the app) ---
     // Auth state change will trigger router and page rendering
-    initAuth();
-
-    // --- Initialize router ---
-    initRouter();
+    initAuth(() => {
+      // --- Initialize router after auth state is confirmed ---
+      initRouter();
+    });
 
     console.log('%c🏎️ F1 PREDICT — v1.0', 'color: #E8002D; font-size: 16px; font-weight: bold;');
     console.log('%cFormula 1 Prediction League', 'color: #888; font-size: 12px;');

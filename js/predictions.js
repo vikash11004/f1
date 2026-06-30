@@ -102,11 +102,13 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
     isReadOnly = false;
     hasCalculatedResults = false;
 
-    if (currentRace.status === 'completed') {
-      isReadOnly = true;
-    } else if (currentRace.status === 'locked') {
-      isReadOnly = true;
-      isLocked = true;
+    if (!resultsMode) {
+      if (currentRace.status === 'completed') {
+        isReadOnly = true;
+      } else if (currentRace.status === 'locked') {
+        isReadOnly = true;
+        isLocked = true;
+      }
     }
 
     // Load existing prediction or result

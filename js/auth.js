@@ -19,11 +19,13 @@ import { navigateTo, showToast } from './ui.js';
 // --- State ---
 let authUnsubscribe = null;
 
+let isAuthReady = false;
+
 /**
  * Initialize auth state listener
  * Called once on app startup
  */
-function initAuth() {
+function initAuth(onReady) {
   authUnsubscribe = onAuthStateChanged(auth, async (user) => {
     if (user) {
       console.log('[Auth] User signed in:', user.email);
@@ -58,6 +60,11 @@ function initAuth() {
       console.log('[Auth] User signed out');
       updateAuthUI(null);
       navigateTo('auth');
+    }
+
+    if (!isAuthReady) {
+      isAuthReady = true;
+      if (onReady) onReady();
     }
   });
 }
