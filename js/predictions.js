@@ -382,15 +382,15 @@ async function fetchAndShowOthersPredictions() {
                 const driver = getDriver(driverId);
                 if (!driver) return '';
                 const teamColor = getTeamColor(driver.team);
-                return \`
+                return `
                   <tr>
-                    <td style="color: var(--text-muted); font-weight: bold;">P\${idx + 1}</td>
+                    <td style="color: var(--text-muted); font-weight: bold;">P${idx + 1}</td>
                     <td>
-                      <span style="display: inline-block; width: 3px; height: 12px; background: \${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
-                      \${driver.code} - \${driver.name}
+                      <span style="display: inline-block; width: 3px; height: 12px; background: ${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
+                      ${driver.code} - ${driver.name}
                     </td>
                   </tr>
-                \`;
+                `;
               }).join('')}
             </tbody>
           </table>
