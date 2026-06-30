@@ -138,11 +138,15 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
 
       // Check if official results exist
       if (isLocked || currentRace.status === 'completed') {
-        const existingResult = await getDocument('results', `${raceId}_${currentSession}`);
-        if (existingResult?.order && existingResult?.calculatedAt) {
-          hasCalculatedResults = true;
-          officialResultOrder = existingResult.order;
-          userSessionScoreData = await getDocument('scores', `${auth.currentUser.uid}_${raceId}_${currentSession}`);
+        try {
+          const existingResult = await getDocument('results', `${raceId}_${currentSession}`);
+          if (existingResult?.order && existingResult?.calculatedAt) {
+            hasCalculatedResults = true;
+            officialResultOrder = existingResult.order;
+            userSessionScoreData = await getDocument('scores', `${auth.currentUser.uid}_${raceId}_${currentSession}`);
+          }
+        } catch (e) {
+          console.warn('[Predictions] Could not check official results:', e);
         }
       }
     }
@@ -156,9 +160,13 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
     let sessionScores = {};
     if (currentRace.status === 'completed' || isLocked) {
       for (const s of sessions) {
-        const result = await getDocument('results', `${raceId}_${s}`);
-        if (result?.totalPoints !== undefined) {
-          sessionScores[s] = result.totalPoints;
+        try {
+          const scoreDoc = await getDocument('scores', `${auth.currentUser.uid}_${raceId}_${s}`);
+          if (scoreDoc?.totalPoints !== undefined) {
+            sessionScores[s] = scoreDoc.totalPoints;
+          }
+        } catch (e) {
+          console.warn(`[Predictions] Could not load score for session ${s}:`, e);
         }
       }
     }
