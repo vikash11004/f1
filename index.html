@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="F1 Prediction League — Predict the finishing order of every Grand Prix session, earn points, and compete on the season leaderboard.">
+  <meta name="theme-color" content="#0A0A0A">
+  <title>F1 PREDICT — Formula 1 Prediction League</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/animations.css">
+
+  <!-- Excel Export (SheetJS) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- ===== HEADER / NAV ===== -->
+    <header class="app-header hidden" id="app-header">
+      <div class="header-inner">
+        <div class="header-brand">
+          <button class="btn btn-icon btn-ghost mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu" style="display: none;">
+            ☰
+          </button>
+          <a href="#dashboard" class="header-logo">
+            F1 <span class="accent">PREDICT</span>
+          </a>
+        </div>
+
+        <nav class="header-nav" id="header-nav" role="navigation" aria-label="Main navigation">
+          <button class="nav-item" data-page="dashboard" aria-label="Dashboard">
+            <span>📊</span> Dashboard
+          </button>
+          <button class="nav-item" data-page="races" aria-label="Races">
+            <span>🏁</span> Races
+          </button>
+          <button class="nav-item" data-page="leaderboard" aria-label="Leaderboard">
+            <span>🏆</span> Leaderboard
+          </button>
+        </nav>
+
+        <div class="header-actions" id="header-actions"></div>
+      </div>
+    </header>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="app-main">
+
+      <!-- Auth Page -->
+      <section class="page" id="auth-page" role="main"></section>
+
+      <!-- Dashboard Page -->
+      <section class="page" id="dashboard-page" role="main"></section>
+
+      <!-- Races Page -->
+      <section class="page" id="races-page" role="main"></section>
+
+      <!-- Prediction Builder Page -->
+      <section class="page" id="predict-page" role="main"></section>
+
+      <!-- Results Entry Page (Admin) -->
+      <section class="page" id="results-page" role="main"></section>
+
+      <!-- Leaderboard Page -->
+      <section class="page" id="leaderboard-page" role="main"></section>
+
+    </main>
+
+    <!-- ===== OVERLAYS ===== -->
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- Modal Container -->
+    <div class="hidden" id="modal-container"></div>
+
+    <!-- Side Panel -->
+    <div class="side-panel-overlay" id="side-panel-overlay"></div>
+    <div class="side-panel" id="side-panel"></div>
+
+  </div>
+
+  <!-- ===== APPLICATION BOOTSTRAP ===== -->
+  <script type="module">
+    // --- Import all modules ---
+    import { initAuth, renderAuthScreen } from './js/auth.js';
+    import { renderDashboard, cleanupDashboard } from './js/dashboard.js';
+    import { renderRaces } from './js/races.js';
+    import { renderPredictionBuilder, cleanupPredictions } from './js/predictions.js';
+    import { renderResults } from './js/results.js';
+    import { renderLeaderboard, cleanupLeaderboard } from './js/leaderboard.js';
+    import { registerPage, initRouter, initNav } from './js/ui.js';
+
+    // --- Register page renderers ---
+    registerPage('auth', renderAuthScreen);
+    registerPage('dashboard', renderDashboard);
+    registerPage('races', renderRaces);
+    registerPage('predict', (raceId, session) => {
+      if (raceId && session) {
+        renderPredictionBuilder(raceId, session, false);
+      } else if (raceId) {
+        renderPredictionBuilder(raceId, 'quali', false);
+      }
+    });
+    registerPage('results', (raceId, session) => {
+      if (raceId && session) {
+        renderResults(raceId, session);
+      }
+    });
+    registerPage('leaderboard', renderLeaderboard);
+
+    // --- Initialize navigation ---
+    initNav();
+
+    // --- Mobile menu toggle ---
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const headerNav = document.getElementById('header-nav');
+
+    if (mobileMenuBtn && headerNav) {
+      // Show button on mobile
+      const updateMobileBtn = () => {
+        if (window.innerWidth < 1024) {
+          mobileMenuBtn.style.display = 'flex';
+        } else {
+          mobileMenuBtn.style.display = 'none';
+          headerNav.classList.remove('mobile-open');
+        }
+      };
+      updateMobileBtn();
+      window.addEventListener('resize', updateMobileBtn);
+
+      mobileMenuBtn.addEventListener('click', () => {
+        headerNav.classList.toggle('mobile-open');
+      });
+
+      // Close mobile menu when clicking a nav item
+      headerNav.addEventListener('click', (e) => {
+        if (e.target.closest('.nav-item')) {
+          headerNav.classList.remove('mobile-open');
+        }
+      });
+    }
+
+    // --- Initialize auth (starts the app) ---
+    // Auth state change will trigger router and page rendering
+    initAuth();
+
+    // --- Initialize router ---
+    initRouter();
+
+    console.log('%c🏎️ F1 PREDICT — v1.0', 'color: #E8002D; font-size: 16px; font-weight: bold;');
+    console.log('%cFormula 1 Prediction League', 'color: #888; font-size: 12px;');
+  </script>
+</body>
+</html>
