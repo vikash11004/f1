@@ -1,34 +1,62 @@
 /* ============================================
-   F1 PREDICT — PIT WALL ELITE ANIMATIONS
-   Keyframes · Transitions · Telemetry · Motion
+   F1 PREDICTION LEAGUE — ANIMATIONS
+   Keyframes · Transitions · Telemetry
    ============================================ */
 
 /* --- Shimmer (Skeleton Loading) --- */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-/* --- Toast Slide --- */
+/* --- Toast Slide Up --- */
 @keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slideDown {
-  from { transform: translateY(0); opacity: 1; }
-  to { transform: translateY(100%); opacity: 0; }
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 
 /* --- Page Fade --- */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-8px); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 /* --- Auth Error Shake --- */
@@ -40,176 +68,219 @@
 
 /* --- Telemetry Line Pulse --- */
 @keyframes telemetryPulse {
-  0% { stroke-dashoffset: 1000; opacity: 0.3; }
-  50% { opacity: 0.8; }
-  100% { stroke-dashoffset: 0; opacity: 0.3; }
+  0% {
+    stroke-dashoffset: 1000;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.3;
+  }
 }
 
 @keyframes telemetryIdle {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.25; }
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 /* --- Score Counter --- */
 @keyframes countUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* --- Rank Shift (Leaderboard) --- */
 @keyframes rankUp {
-  0% { background-color: transparent; }
-  30% { background-color: rgba(0, 255, 65, 0.08); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: transparent;
+  }
+  30% {
+    background-color: rgba(34, 197, 94, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 @keyframes rankDown {
-  0% { background-color: transparent; }
-  30% { background-color: rgba(255, 68, 68, 0.08); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: transparent;
+  }
+  30% {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
-/* --- Card Enter (Stagger) --- */
+/* --- Card Enter --- */
 @keyframes cardEnter {
-  from { opacity: 0; transform: translateY(20px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* --- Slot Glow (Drag target) --- */
 @keyframes slotGlow {
-  0%, 100% { box-shadow: 0 0 0 2px var(--accent); }
-  50% { box-shadow: 0 0 12px 2px var(--accent); }
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  50% {
+    box-shadow: 0 0 8px 2px var(--accent);
+  }
 }
 
 /* --- Driver Card Slide --- */
 @keyframes slideInFromRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideOutToRight {
-  from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(20px); }
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
 }
 
-/* --- Position Shift --- */
+/* --- Position Shift (Drivers moving up in list) --- */
 @keyframes shiftUp {
-  from { transform: translateY(56px); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(56px);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* --- Lock Badge Appear --- */
 @keyframes lockAppear {
-  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
-  60% { transform: scale(1.2) rotate(5deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0); opacity: 1; }
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2) rotate(5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
 }
 
 /* --- Save Badge --- */
 @keyframes savedFade {
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
-/* --- Modal --- */
+/* --- Modal Backdrop --- */
 @keyframes backdropIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* --- Spinner --- */
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* --- Side Panel --- */
 @keyframes panelSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes panelSlideOut {
-  from { transform: translateX(0); }
-  to { transform: translateX(100%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 /* --- Countdown Tick --- */
 @keyframes tick {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 /* --- Sprint Badge Pulse --- */
 @keyframes sprintPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0);
+  }
 }
 
-/* ============================================
-   NEW: PIT WALL ELITE ANIMATIONS
-   ============================================ */
-
-/* --- Live Race Indicator Pulse --- */
-@keyframes livePulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 0; }
-}
-
-/* --- Chat Message Entrance --- */
-@keyframes chatMessageIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* --- DRS Zone Shimmer Border --- */
-@keyframes shimmerBorder {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* --- Scan Line (Button hover sweep) --- */
-@keyframes scanLine {
-  from { left: -100%; }
-  to { left: 100%; }
-}
-
-/* --- Glow Breathe (subtle ambient glow) --- */
-@keyframes glowBreathe {
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.15); }
-  50% { box-shadow: 0 0 30px rgba(0, 240, 255, 0.25); }
-}
-
-/* --- Number Slot Roll --- */
-@keyframes slotRoll {
-  0% { transform: translateY(100%); opacity: 0; }
-  60% { transform: translateY(-5%); }
-  100% { transform: translateY(0); opacity: 1; }
-}
-
-/* --- Danger Button Wobble --- */
-@keyframes dangerWobble {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  75% { transform: translateX(2px); }
-}
-
-/* ============================================
-   UTILITY ANIMATION CLASSES
-   ============================================ */
+/* --- Utility Animation Classes --- */
 .animate-fade-in {
-  animation: fadeIn 0.4s var(--ease-smooth) forwards;
+  animation: fadeIn var(--transition-slow) ease forwards;
 }
 
 .animate-card-enter {
-  animation: cardEnter 0.5s var(--ease-smooth) forwards;
+  animation: cardEnter 400ms ease forwards;
 }
 
 .animate-shake {
@@ -217,11 +288,11 @@
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s var(--ease-elastic) forwards;
+  animation: slideUp var(--transition-slow) ease forwards;
 }
 
 .animate-lock {
-  animation: lockAppear 400ms var(--ease-elastic) forwards;
+  animation: lockAppear 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .animate-saved {
@@ -229,15 +300,15 @@
 }
 
 .animate-rank-up {
-  animation: rankUp 1s var(--ease-smooth) forwards;
+  animation: rankUp 1s ease forwards;
 }
 
 .animate-rank-down {
-  animation: rankDown 1s var(--ease-smooth) forwards;
+  animation: rankDown 1s ease forwards;
 }
 
 .animate-count-up {
-  animation: countUp 600ms var(--ease-elastic) forwards;
+  animation: countUp 600ms ease-out forwards;
 }
 
 /* --- Telemetry Line Styles --- */
@@ -267,9 +338,7 @@
 .stagger-5 { animation-delay: 250ms; }
 .stagger-6 { animation-delay: 300ms; }
 
-/* ============================================
-   REDUCED MOTION
-   ============================================ */
+/* --- Reduced Motion Override --- */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-card-enter,
@@ -288,17 +357,5 @@
     opacity: 1 !important;
     transform: none !important;
     stroke-dashoffset: 0 !important;
-  }
-
-  .status-dot.active {
-    animation: none !important;
-  }
-
-  .chat-message-wrapper {
-    animation: none !important;
-  }
-
-  .btn-primary::before {
-    display: none;
   }
 }

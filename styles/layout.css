@@ -1,5 +1,5 @@
 /* ============================================
-   F1 PREDICT — PIT WALL ELITE LAYOUT
+   F1 PREDICTION LEAGUE — LAYOUT
    Shell · Grid · Nav · Panels · Breakpoints
    ============================================ */
 
@@ -8,28 +8,27 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--bg-void);
+  background: var(--bg-base);
 }
 
-/* --- Header / Nav Bar --- */
 .app-header {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: rgba(5, 5, 5, 0.88);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 var(--space-6);
-  height: 64px;
+  padding: var(--space-3) var(--space-6);
+  height: 56px;
 }
 
 .header-brand {
@@ -49,7 +48,6 @@
 
 .header-logo .accent {
   color: var(--accent);
-  text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
 }
 
 .header-nav {
@@ -59,11 +57,10 @@
 }
 
 .nav-item {
-  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -73,17 +70,16 @@
   border: none;
   background: none;
   white-space: nowrap;
-  letter-spacing: 0.02em;
 }
 
 .nav-item:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg);
 }
 
 .nav-item.active {
   color: var(--text-primary);
-  background: rgba(0, 240, 255, 0.06);
+  background: var(--glass-bg-hover);
 }
 
 .nav-item.active::after {
@@ -92,11 +88,10 @@
   bottom: -2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
+  width: 16px;
   height: 2px;
   background: var(--accent);
   border-radius: var(--radius-full);
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
 }
 
 .header-actions {
@@ -110,16 +105,16 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* --- Main Content --- */
 .app-main {
   flex: 1;
-  max-width: 1200px;
+  max-width: 1280px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-6);
 }
 
 .page {
@@ -129,7 +124,7 @@
 
 .page.active {
   display: block;
-  animation: fadeIn 0.4s var(--ease-smooth) forwards;
+  animation: fadeIn var(--transition-slow) ease forwards;
 }
 
 .page-header {
@@ -138,26 +133,23 @@
 
 .page-title {
   font-family: var(--font-display);
-  font-weight: var(--weight-extrabold);
-  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-2xl);
   color: var(--text-primary);
   margin-bottom: var(--space-2);
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
 }
 
 .page-subtitle {
   font-size: var(--text-base);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* --- Dashboard Grid (2×2) --- */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-6);
-  margin-bottom: var(--space-8);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 /* --- Race List --- */
@@ -174,21 +166,17 @@
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
-  transition: all 0.3s var(--ease-snappy);
-  border-radius: var(--radius-lg);
-  border: 1px solid transparent;
+  transition: background var(--transition-fast);
 }
 
 .race-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: var(--border-subtle);
-  transform: translateX(4px);
+  background: var(--glass-bg-hover);
 }
 
-/* --- Prediction Builder: Two Panels (60/40 split) --- */
+/* --- Prediction Builder: Two Panels --- */
 .prediction-layout {
   display: grid;
-  grid-template-columns: 3fr 2fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-6);
   min-height: calc(100vh - 200px);
 }
@@ -204,17 +192,17 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--glass-border);
   margin-bottom: var(--space-2);
 }
 
 .panel-title {
-  font-family: var(--font-body);
-  font-weight: var(--weight-medium);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
 }
 
 .panel-count {
@@ -285,7 +273,7 @@
   display: flex;
   gap: var(--space-1);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--glass-border);
   margin-bottom: var(--space-5);
   overflow-x: auto;
 }
@@ -296,8 +284,8 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  font-family: var(--font-body);
-  font-weight: var(--weight-medium);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
   font-size: var(--text-sm);
   color: var(--text-muted);
   background: none;
@@ -306,17 +294,15 @@
   transition: color var(--transition-fast);
   white-space: nowrap;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 .session-tab:hover {
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
 }
 
 .session-tab.active {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .session-tab.active::after {
@@ -327,7 +313,6 @@
   right: 0;
   height: 2px;
   background: var(--accent);
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
 }
 
 .session-tab .tab-score {
@@ -344,12 +329,11 @@
 .side-panel-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5);
   z-index: var(--z-overlay);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s var(--ease-smooth);
+  transition: opacity var(--transition-base);
 }
 
 .side-panel-overlay.open {
@@ -365,10 +349,10 @@
   width: 420px;
   max-width: 90vw;
   background: var(--bg-surface);
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--glass-border);
   z-index: var(--z-overlay);
   transform: translateX(100%);
-  transition: transform 0.4s var(--ease-smooth);
+  transition: transform var(--transition-slow);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -383,7 +367,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .side-panel-body {
@@ -393,7 +377,7 @@
 
 .side-panel-footer {
   padding: var(--space-5);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--glass-border);
   display: flex;
   gap: var(--space-3);
 }
@@ -405,16 +389,11 @@
   justify-content: center;
   min-height: 100vh;
   padding: var(--space-6);
-  /* Subtle animated dark gradient bg */
-  background:
-    radial-gradient(ellipse at 20% 80%, rgba(0, 240, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(225, 6, 0, 0.02) 0%, transparent 50%),
-    linear-gradient(180deg, var(--bg-void), #0a0e1a);
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
 }
 
 /* --- Leaderboard Table --- */
@@ -425,42 +404,41 @@
 }
 
 .leaderboard-row {
-  transition: transform 600ms var(--ease-smooth), background-color 1s ease;
-}
-
-.leaderboard-row:hover {
-  transform: translateX(4px);
+  transition: transform 600ms ease, background-color 1s ease;
 }
 
 .leaderboard-row td {
   padding: var(--space-4) var(--space-5);
-  background: rgba(15, 15, 17, 0.5);
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
+  border-top: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .leaderboard-row td:first-child {
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--glass-border);
   border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 
 .leaderboard-row td:last-child {
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--glass-border);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
-/* Podium treatments */
+.leaderboard-row.leader td {
+  border-left: 4px solid var(--gold);
+}
+
 .leaderboard-row.leader td:first-child {
-  border-left: 4px solid var(--f1-gold);
+  border-left: 4px solid var(--gold);
 }
 
 /* --- Confirm Bar --- */
 .confirm-bar {
   position: sticky;
   bottom: 0;
-  background: rgba(5, 5, 5, 0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid var(--border-subtle);
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: var(--blur);
+  border-top: 1px solid var(--glass-border);
   padding: var(--space-4) var(--space-6);
   display: flex;
   align-items: center;
@@ -496,7 +474,7 @@
   color: var(--text-muted);
   padding: var(--space-3) var(--space-4);
   text-align: left;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .score-breakdown td {
@@ -509,7 +487,7 @@
 .score-breakdown tr.bonus-row td {
   color: var(--accent);
   font-weight: var(--weight-semibold);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--glass-border);
 }
 
 /* --- FAB (Floating Action Button) --- */
@@ -527,8 +505,7 @@
 /* --- Tablet (768px) --- */
 @media (max-width: 768px) {
   .header-inner {
-    padding: 0 var(--space-4);
-    height: 56px;
+    padding: var(--space-3) var(--space-4);
   }
 
   .header-nav {
@@ -543,11 +520,10 @@
     left: 0;
     right: 0;
     background: var(--bg-surface);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--glass-border);
     padding: var(--space-3);
     gap: var(--space-1);
     z-index: var(--z-dropdown);
-    backdrop-filter: blur(20px);
   }
 
   .mobile-menu-btn {
