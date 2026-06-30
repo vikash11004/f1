@@ -111,6 +111,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
       }
     }
 
+    let playerHasLocked = false;
     // Load existing prediction or result
     let existingOrder = [];
     if (resultsMode) {
@@ -130,6 +131,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
         if (existingPred.lockedAt) {
           isLocked = true;
           isReadOnly = true;
+          playerHasLocked = true;
         }
       }
 
@@ -208,7 +210,7 @@ function renderBuilderUI(page, sessions, sessionScores) {
                 Export Excel
               </button>
             ` : '')}
-        ${((isLocked || hasCalculatedResults) && !isResultsMode) ? `
+        ${(playerHasLocked && !isResultsMode) ? `
           <button class="btn btn-secondary btn-sm" id="btn-view-others" style="margin-left: var(--space-2);">
             👀 View Others
           </button>
@@ -884,7 +886,9 @@ async function handleLockPrediction() {
 
         isLocked = true;
         isReadOnly = true;
-        refreshUI();
+        
+        // Re-render entirely to show the "View Others" button in the header
+        await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
 
         // Update tab with lock icon
         const tab = getPage().querySelector(`.session-tab[data-session="${currentSession}"]`);

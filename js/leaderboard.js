@@ -66,9 +66,9 @@ function renderLeaderboardTable(users) {
   const container = document.getElementById('leaderboard-content');
   if (!container) return;
 
-  // Filter out users with no points data
+  // Filter out users with no points data and exclude admin
   const ranked = users
-    .filter(u => u.seasonPoints !== undefined)
+    .filter(u => u.seasonPoints !== undefined && u.email !== 'vikash11004@gmail.com')
     .sort((a, b) => b.seasonPoints - a.seasonPoints);
 
   if (ranked.length === 0) {
