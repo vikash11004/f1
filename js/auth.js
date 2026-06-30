@@ -15,6 +15,7 @@ import {
 } from './firebase.js';
 import { seedData } from './seed.js';
 import { navigateTo, showToast } from './ui.js';
+import { initChat, cleanupChat } from './chat.js';
 
 // --- State ---
 let authUnsubscribe = null;
@@ -56,9 +57,14 @@ function initAuth(onReady) {
       if (window.location.hash === '' || window.location.hash === '#auth') {
         navigateTo('dashboard');
       }
+
+      // Initialize global chat
+      initChat(user);
     } else {
       console.log('[Auth] User signed out');
       updateAuthUI(null);
+      // Hide UI elements
+      cleanupChat();
       navigateTo('auth');
     }
 

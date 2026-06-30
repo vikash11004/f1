@@ -99,11 +99,18 @@ async function processResults(raceId, session, officialOrder) {
     const batch = createBatch();
 
     for (const ps of playerScores) {
+      // Calculate delta to avoid double counting if results are edited
+      const oldScoreDoc = await getDocument('scores', `${ps.userId}_${raceId}_${session}`);
+      let delta = ps.totalPoints;
+      if (oldScoreDoc && oldScoreDoc.totalPoints !== undefined) {
+        delta = ps.totalPoints - oldScoreDoc.totalPoints;
+      }
+
       // Get current user data
       const userData = await getDocument('users', ps.userId);
       if (!userData) continue;
 
-      const newSeasonPoints = (userData.seasonPoints || 0) + ps.totalPoints;
+      const newSeasonPoints = (userData.seasonPoints || 0) + delta;
       const userRef = getDocRef('users', ps.userId);
       batch.update(userRef, {
         seasonPoints: newSeasonPoints,

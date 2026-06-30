@@ -205,7 +205,8 @@ function renderBuilderUI(page, sessions, sessionScores) {
         ${sprintBadge}
         ${isResultsMode 
           ? (hasCalculatedResults 
-              ? '<span class="badge" style="background: var(--status-completed); color: white; border: none;">RESULTS CONFIRMED</span>' 
+              ? `<span class="badge" style="background: var(--status-completed); color: white; border: none;">RESULTS CONFIRMED</span>
+                 <button class="btn btn-secondary btn-sm" id="btn-edit-results" style="margin-left: var(--space-2);">Edit Results</button>` 
               : '<span class="badge badge-active">ADMIN: RESULTS ENTRY</span>') 
           : (userSessionScoreData ? `
               <span class="badge" style="background: var(--accent); color: white; border: none;">SCORE: ${userSessionScoreData.totalPoints} PTS</span>
@@ -316,6 +317,13 @@ function renderBuilderUI(page, sessions, sessionScores) {
 
   // View Others' Predictions
   getPage().querySelector('#btn-view-others')?.addEventListener('click', fetchAndShowOthersPredictions);
+
+  // Edit Results (Admin)
+  getPage().querySelector('#btn-edit-results')?.addEventListener('click', () => {
+    isReadOnly = false;
+    hasCalculatedResults = false;
+    renderBuilderUI(page, sessions, sessionScores);
+  });
 
   // Show confirm bar if all filled
   updateConfirmBar();

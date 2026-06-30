@@ -87,6 +87,26 @@
     <div class="side-panel-overlay" id="side-panel-overlay"></div>
     <div class="side-panel" id="side-panel"></div>
 
+    <!-- Global Chat -->
+    <div class="global-chat-wrapper hidden" id="global-chat-wrapper">
+      <div class="chat-popup hidden" id="chat-popup">
+        <div class="chat-header">
+          <div class="chat-title">Live Chat</div>
+          <button class="btn btn-icon btn-ghost" id="btn-close-chat" aria-label="Close Chat">✕</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <!-- Messages go here -->
+        </div>
+        <form class="chat-input-form" id="chat-input-form">
+          <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" required maxlength="200" />
+          <button type="submit" class="btn btn-primary btn-icon" aria-label="Send">↑</button>
+        </form>
+      </div>
+      <button class="chat-fab" id="chat-fab" aria-label="Open Chat">
+        <div class="chat-fab-avatar" id="chat-fab-avatar">💬</div>
+      </button>
+    </div>
+
   </div>
 
   <!-- ===== APPLICATION BOOTSTRAP ===== -->

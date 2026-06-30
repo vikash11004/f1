@@ -17,6 +17,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  addDoc,
   updateDoc,
   deleteDoc,
   collection,
@@ -250,6 +251,7 @@ export {
   onSnapshot,
   getDoc,
   setDoc,
+  addDoc,
   updateDoc,
   deleteDoc
 };
