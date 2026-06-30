@@ -44,6 +44,7 @@ let currentSession = null;
 let orderedDrivers = [];     // Array of driverIds in predicted order (length 0-22)
 let poolDrivers = [];        // Array of driverIds still in the pool
 let isLocked = false;
+let playerHasLocked = false;
 let isReadOnly = false;
 let selectedPoolDriver = null; // For mobile tap-to-select
 let saveTimeout = null;
@@ -112,7 +113,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
       }
     }
 
-    let playerHasLocked = false;
+    playerHasLocked = false;
     // Load existing prediction or result
     let existingOrder = [];
     if (resultsMode) {
@@ -894,6 +895,7 @@ async function handleLockPrediction() {
         }, true);
 
         isLocked = true;
+        playerHasLocked = true;
         isReadOnly = true;
         
         // Re-render entirely to show the "View Others" button in the header
@@ -942,6 +944,7 @@ function cleanupPredictions() {
   orderedDrivers = [];
   poolDrivers = [];
   isLocked = false;
+  playerHasLocked = false;
   isReadOnly = false;
   selectedPoolDriver = null;
   isResultsMode = false;
