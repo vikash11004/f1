@@ -1,7 +1,7 @@
 /* ============================================
-   F1 PREDICTION LEAGUE â€” COMPONENTS
-   Cards Â· Buttons Â· Badges Â· Toasts Â· Forms
-   Driver Cards Â· Modals Â· Skeletons Â· Empty States
+   F1 PREDICTION LEAGUE — COMPONENTS
+   Cards · Buttons · Badges · Toasts · Forms
+   Driver Cards · Modals · Skeletons · Empty States
    ============================================ */
 
 /* --- Card (Glassmorphism) --- */
@@ -971,6 +971,7 @@
   letter-spacing: 0.02em;
   background: linear-gradient(135deg, #fff, #aaa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
