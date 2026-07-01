@@ -83,63 +83,65 @@ function renderLeaderboardTable(users) {
   }
 
   container.innerHTML = `
-    <table class="leaderboard-table" role="table" aria-label="Championship standings">
-      <thead>
-        <tr>
-          <th style="width: 60px; padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em;">#</th>
-          <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em;">Player</th>
-          <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right;">Season Pts</th>
-          <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right;">Last Event</th>
-          <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right;">Wins</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${ranked.map((user, index) => {
-          const rank = index + 1;
-          const prevRank = previousRanks[user.id];
-          const isLeader = rank === 1;
-          
-          // Determine animation class
-          let animClass = '';
-          if (prevRank !== undefined) {
-            if (rank < prevRank) animClass = 'animate-rank-up';
-            else if (rank > prevRank) animClass = 'animate-rank-down';
-          }
+    <div class="table-responsive">
+      <table class="leaderboard-table" role="table" aria-label="Championship standings">
+        <thead>
+          <tr>
+            <th style="width: 60px; padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em;">#</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;">Player</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Season Pts</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Last Event</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Wins</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranked.map((user, index) => {
+            const rank = index + 1;
+            const prevRank = previousRanks[user.id];
+            const isLeader = rank === 1;
+            
+            // Determine animation class
+            let animClass = '';
+            if (prevRank !== undefined) {
+              if (rank < prevRank) animClass = 'animate-rank-up';
+              else if (rank > prevRank) animClass = 'animate-rank-down';
+            }
 
-          // Rank display
-          let rankDisplay = rank;
-          if (rank === 1) rankDisplay = '🥇';
-          else if (rank === 2) rankDisplay = '🥈';
-          else if (rank === 3) rankDisplay = '🥉';
+            // Rank display
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            else if (rank === 2) rankDisplay = '🥈';
+            else if (rank === 3) rankDisplay = '🥉';
 
-          // Last event delta
-          const lastEvent = user.lastEventScore || 0;
-          const deltaStr = lastEvent > 0 ? `+${lastEvent}` : lastEvent === 0 ? '-' : `${lastEvent}`;
-          const deltaClass = lastEvent > 0 ? 'text-success' : lastEvent < 0 ? 'text-error' : 'text-muted';
+            // Last event delta
+            const lastEvent = user.lastEventScore || 0;
+            const deltaStr = lastEvent > 0 ? `+${lastEvent}` : lastEvent === 0 ? '-' : `${lastEvent}`;
+            const deltaClass = lastEvent > 0 ? 'text-success' : lastEvent < 0 ? 'text-error' : 'text-muted';
 
-          return `
-            <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${user.id}">
-              <td style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-md);">${rankDisplay}</td>
-              <td>
-                <div style="display: flex; flex-direction: column;">
-                  <span style="font-weight: var(--weight-semibold);">${user.displayName || 'Unknown'}</span>
-                  <span class="text-body-sm text-muted">${user.email || ''}</span>
-                </div>
-              </td>
-              <td style="text-align: right;">
-                <span class="text-data" style="font-size: var(--text-lg); font-weight: var(--weight-bold);">${user.seasonPoints || 0}</span>
-              </td>
-              <td style="text-align: right;">
-                <span class="stat-delta ${deltaClass} text-data">${deltaStr}</span>
-              </td>
-              <td style="text-align: right;">
-                <span class="text-data">${user.wins || 0}</span>
-              </td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
+            return `
+              <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${user.id}">
+                <td style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-md);">${rankDisplay}</td>
+                <td style="white-space: nowrap;">
+                  <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: var(--weight-semibold);">${user.displayName || 'Unknown'}</span>
+                    <span class="text-body-sm text-muted">${user.email || ''}</span>
+                  </div>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <span class="text-data" style="font-size: var(--text-lg); font-weight: var(--weight-bold);">${user.seasonPoints || 0}</span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <span class="stat-delta ${deltaClass} text-data">${deltaStr}</span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <span class="text-data">${user.wins || 0}</span>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
   `;
 
   // Update previous ranks for next render
