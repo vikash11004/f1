@@ -13,6 +13,17 @@ import {
   getDocument,
   serverTimestamp
 } from './firebase.js';
+import { SESSION_KEYS, SESSION_LABELS } from './seed.js';
+import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
+import {
+  navigateTo,
+  showToast,
+  showModal,
+  openSidePanel,
+  closeSidePanel,
+  rowSkeletonHTML,
+  formatRound
+} from './ui.js';
 
 // Global cache for races to support event delegation across the app
 let _cachedRaces = [];
@@ -38,17 +49,6 @@ document.body.addEventListener('click', async (e) => {
   
   if (race) openRacePanel(race);
 });
-import { SESSION_KEYS, SESSION_LABELS } from './seed.js';
-import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
-import {
-  navigateTo,
-  showToast,
-  showModal,
-  openSidePanel,
-  closeSidePanel,
-  rowSkeletonHTML,
-  formatRound
-} from './ui.js';
 
 /**
  * Render the Race Management page
