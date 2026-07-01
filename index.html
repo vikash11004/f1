@@ -157,17 +157,6 @@
       };
       updateMobileBtn();
       window.addEventListener('resize', updateMobileBtn);
-
-      mobileMenuBtn.addEventListener('click', () => {
-        headerNav.classList.toggle('mobile-open');
-      });
-
-      // Close mobile menu when clicking a nav item
-      headerNav.addEventListener('click', (e) => {
-        if (e.target.closest('.nav-item')) {
-          headerNav.classList.remove('mobile-open');
-        }
-      });
     }
 
     // --- Initialize auth (starts the app) ---
