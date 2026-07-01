@@ -138,8 +138,22 @@ function initNav() {
     if (navItem) {
       e.preventDefault();
       navigateTo(navItem.dataset.page);
+      
+      // Close mobile menu if open
+      const nav = document.getElementById('header-nav');
+      if (nav && nav.classList.contains('mobile-open')) {
+        nav.classList.remove('mobile-open');
+      }
     }
   });
+
+  const mobileBtn = document.getElementById('mobile-menu-btn');
+  if (mobileBtn) {
+    mobileBtn.addEventListener('click', () => {
+      const nav = document.getElementById('header-nav');
+      if (nav) nav.classList.toggle('mobile-open');
+    });
+  }
 }
 
 // --- Toast System ---
@@ -344,10 +358,13 @@ function openSidePanel(html) {
   overlay.classList.add('open');
   panel.classList.add('open');
 
-  // Close handlers
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeSidePanel();
-  });
+  // Close handlers (bind only once)
+  if (!overlay._closeBound) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeSidePanel();
+    });
+    overlay._closeBound = true;
+  }
 
   // Focus first input in panel
   const firstInput = panel.querySelector('input, button, select');

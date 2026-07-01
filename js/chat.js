@@ -61,15 +61,16 @@ export function initChat(user) {
     popup.style.height = '';
   };
 
-  if (window.visualViewport) {
+  if (window.visualViewport && !window._chatViewportListenerBound) {
     window.visualViewport.addEventListener('resize', handleViewportResize);
     window.visualViewport.addEventListener('scroll', handleViewportResize);
+    window._chatViewportListenerBound = true;
   }
 
   // Reset height when chat closes
-  const originalToggle = toggleChat;
-  const enhancedToggle = () => {
-    originalToggle();
+  const enhancedToggle = (e) => {
+    if (e) e.preventDefault();
+    toggleChat();
     if (popup.classList.contains('hidden')) {
       resetPopupHeight();
     }
@@ -97,14 +98,13 @@ export function initChat(user) {
     }
   };
 
-  // Bind UI events (remove first to avoid duplicates if re-inited)
-  fab.removeEventListener('click', enhancedToggle);
-  closeBtn.removeEventListener('click', enhancedToggle);
-  inputForm.removeEventListener('submit', handleSendMessage);
-  
-  fab.addEventListener('click', enhancedToggle);
-  closeBtn.addEventListener('click', enhancedToggle);
-  inputForm.addEventListener('submit', handleSendMessage);
+  // Bind UI events (avoid duplicates by using a global flag)
+  if (!window._chatUIBound) {
+    fab.addEventListener('click', enhancedToggle);
+    closeBtn.addEventListener('click', enhancedToggle);
+    inputForm.addEventListener('submit', handleSendMessage);
+    window._chatUIBound = true;
+  }
 
   // Subscribe to messages (last 24 hours only)
   const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
