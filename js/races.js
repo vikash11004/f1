@@ -124,9 +124,9 @@ function renderRaceList(races) {
     const statusBadge = getStatusBadge(race.status);
 
     return `
-      <div class="card card-interactive animate-card-enter stagger-\${(i % 6) + 1}" 
-           data-race-id="\${race.id}" 
-           id="race-row-\${race.id}">
+      <div class="card card-interactive animate-card-enter stagger-${(i % 6) + 1}" 
+           data-race-id="${race.id}" 
+           id="race-row-${race.id}">
         <div class="card-body race-row-body">
           <div style="display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
             <span class="badge-round text-display" style="min-width: 42px;">${formatRound(race.round)}</span>
