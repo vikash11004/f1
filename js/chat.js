@@ -43,6 +43,38 @@ export function initChat(user) {
     }
   };
 
+  // --- Mobile keyboard handling ---
+  // visualViewport shrinks when the virtual keyboard opens.
+  // We sync the popup height to it so the input form stays visible.
+  const handleViewportResize = () => {
+    if (!window.visualViewport || popup.classList.contains('hidden')) return;
+    const vvHeight = window.visualViewport.height;
+    // Apply dynamic height (minus 16px margin)
+    popup.style.height = `${vvHeight - 16}px`;
+    // Keep messages scrolled to bottom
+    requestAnimationFrame(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+  };
+
+  const resetPopupHeight = () => {
+    popup.style.height = '';
+  };
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+    window.visualViewport.addEventListener('scroll', handleViewportResize);
+  }
+
+  // Reset height when chat closes
+  const originalToggle = toggleChat;
+  const enhancedToggle = () => {
+    originalToggle();
+    if (popup.classList.contains('hidden')) {
+      resetPopupHeight();
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
@@ -66,12 +98,12 @@ export function initChat(user) {
   };
 
   // Bind UI events (remove first to avoid duplicates if re-inited)
-  fab.removeEventListener('click', toggleChat);
-  closeBtn.removeEventListener('click', toggleChat);
+  fab.removeEventListener('click', enhancedToggle);
+  closeBtn.removeEventListener('click', enhancedToggle);
   inputForm.removeEventListener('submit', handleSendMessage);
   
-  fab.addEventListener('click', toggleChat);
-  closeBtn.addEventListener('click', toggleChat);
+  fab.addEventListener('click', enhancedToggle);
+  closeBtn.addEventListener('click', enhancedToggle);
   inputForm.addEventListener('submit', handleSendMessage);
 
   // Subscribe to messages (last 24 hours only)

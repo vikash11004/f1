@@ -1122,15 +1122,47 @@
 /* Mobile adjustments */
 @media (max-width: 480px) {
   .chat-popup {
-    width: 100vw;
+    /* Use inset for positioning — leaves 8px breathing room on all sides */
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
     max-width: none;
-    height: 100vh;
+    /* dvh shrinks when the virtual keyboard opens */
+    height: calc(100dvh - 16px);
     max-height: none;
-    border-radius: 0;
-    border: none;
+    transform: none;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Safe-area for notched devices */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
   .chat-popup.hidden {
-    /* Flow from FAB bottom-left to full screen */
+    /* Shrink towards FAB at bottom-left */
     transform: translate(calc(-50vw + 52px), calc(50vh - 52px)) scale(0.1);
+  }
+
+  /* Ensure input form stays visible above keyboard */
+  .chat-input-form {
+    flex-shrink: 0;
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Messages area fills remaining space and stays scrollable */
+  .chat-messages {
+    flex: 1;
+    min-height: 0; /* allows flex child to shrink below content size */
+    overflow-y: auto;
+  }
+
+  /* Slightly smaller FAB on small screens so it doesn't crowd the corner */
+  .chat-fab {
+    width: 48px;
+    height: 48px;
+  }
+  .chat-fab-avatar {
+    font-size: 1.25rem;
   }
 }
