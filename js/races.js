@@ -13,6 +13,31 @@ import {
   getDocument,
   serverTimestamp
 } from './firebase.js';
+
+// Global cache for races to support event delegation across the app
+let _cachedRaces = [];
+
+// Global event delegation for ALL race cards across the app (dashboard and races page)
+document.body.addEventListener('click', async (e) => {
+  const row = e.target.closest('.card-interactive[data-race-id]');
+  // Make sure we didn't click inside a button (like toggle options or close buttons)
+  if (!row || e.target.closest('button') || e.target.closest('a')) return;
+  
+  const raceId = row.dataset.raceId;
+  let race = _cachedRaces.find(r => r.id === raceId);
+  
+  // If not in cache (e.g., clicked from Dashboard before Races page loaded), fetch it
+  if (!race) {
+    try {
+      race = await getDocument('races', raceId);
+      if (race) _cachedRaces.push(race);
+    } catch (err) {
+      console.error('[Races] Error fetching race for panel:', err);
+    }
+  }
+  
+  if (race) openRacePanel(race);
+});
 import { SESSION_KEYS, SESSION_LABELS } from './seed.js';
 import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
 import {
@@ -52,6 +77,7 @@ async function renderRaces() {
   try {
     const races = await getAllDocuments('races');
     races.sort((a, b) => a.round - b.round);
+    _cachedRaces = races; // Update cache
     renderRaceList(races);
 
     // FAB click handler
@@ -118,15 +144,8 @@ function renderRaceList(races) {
       </div>
     `;
   }).join('');
-
-  // Click handlers for each race row
-  container.querySelectorAll('[data-race-id]').forEach(row => {
-    row.addEventListener('click', () => {
-      const raceId = row.dataset.raceId;
-      const race = races.find(r => r.id === raceId);
-      if (race) openRacePanel(race);
-    });
-  });
+  
+  // Listeners are now handled globally via event delegation on document.body
 }
 
 /**
