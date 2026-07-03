@@ -468,6 +468,13 @@ function handleExportXLSX() {
   rows.push([]);
   rows.push(["", "", "Accuracy Points", userSessionScoreData.accuracyPoints, ""]);
   rows.push(["", "", "Bonus Points", userSessionScoreData.bonusPoints, ""]);
+  
+  if (userSessionScoreData.bonuses && userSessionScoreData.bonuses.length > 0) {
+    for (const bonus of userSessionScoreData.bonuses) {
+      rows.push(["", "", `  ↳ ${bonus.label}`, "", bonus.earned ? bonus.points : 0]);
+    }
+  }
+
   rows.push(["", "", "TOTAL SCORE", userSessionScoreData.totalPoints, ""]);
 
   const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
