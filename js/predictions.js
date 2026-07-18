@@ -529,6 +529,36 @@ async function handleExportXLSX() {
     const bonusRow = ["", "Bonus Points"];
     const totalRow = ["", "TOTAL SCORE"];
     
+    // Find all unique bonus labels across users
+    const uniqueBonusLabels = [];
+    lockedPredictions.forEach(p => {
+      const userScore = scoreMap[p.userId];
+      if (userScore && userScore.bonuses) {
+        userScore.bonuses.forEach(b => {
+          if (!uniqueBonusLabels.includes(b.label)) {
+            uniqueBonusLabels.push(b.label);
+          }
+        });
+      }
+    });
+
+    // Create rows for each bonus label
+    const bonusBreakdownRows = uniqueBonusLabels.map(label => {
+      const row = ["", `  ↳ ${label}`];
+      lockedPredictions.forEach(p => {
+        const userScore = scoreMap[p.userId];
+        let points = 0;
+        if (userScore && userScore.bonuses) {
+          const b = userScore.bonuses.find(x => x.label === label);
+          if (b && b.earned) {
+            points = b.points;
+          }
+        }
+        row.push("", "", points); // Empty Pred, Empty Diff, Bonus Pts
+      });
+      return row;
+    });
+    
     lockedPredictions.forEach(p => {
       const userScore = scoreMap[p.userId];
       accuracyRow.push("", "", userScore ? userScore.accuracyPoints : 0);
@@ -536,7 +566,7 @@ async function handleExportXLSX() {
       totalRow.push("", "", userScore ? userScore.totalPoints : 0);
     });
 
-    rows.push(accuracyRow, bonusRow, totalRow);
+    rows.push(accuracyRow, bonusRow, ...bonusBreakdownRows, totalRow);
 
     const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
     const workbook = window.XLSX.utils.book_new();
