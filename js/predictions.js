@@ -430,68 +430,126 @@ async function fetchAndShowOthersPredictions() {
 }
 
 /**
- * Handle Excel Export (XLSX)
- */
-function handleExportXLSX() {
-  if (!officialResultOrder || !userSessionScoreData || !orderedDrivers) return;
+ * Handle Exasync function handleExportXLSX() {
+  if (!officialResultOrder) {
+    showToast("Official results are not available yet.", "warning");
+    return;
+  }
   if (!window.XLSX) {
     showToast("Excel export library is loading, please try again in a moment.", "warning");
     return;
   }
 
-  const rows = [
-    ["Formula 1 Prediction League — Session Results Export"],
-    [`Race: ${currentRace.name}`],
-    [`Session: ${SESSION_FULL_LABELS[currentSession]}`],
-    [],
-    ["Position", "Your Prediction", "Official Result", "Difference", "Points Earned"]
-  ];
+  showToast("Generating Excel file, please wait...", "info");
 
-  for (let i = 0; i < 22; i++) {
-    const pos = i + 1;
-    const predDriverId = orderedDrivers[i];
-    const actualDriverId = officialResultOrder[i];
-    
-    const predDriver = getDriver(predDriverId);
-    const actualDriver = getDriver(actualDriverId);
-    
-    const predName = predDriver ? `${predDriver.code} - ${predDriver.name}` : "-";
-    const actualName = actualDriver ? `${actualDriver.code} - ${actualDriver.name}` : "-";
+  try {
+    const allPredictions = await queryCollection('predictions', [
+      ['raceId', '==', currentRace.id],
+      ['session', '==', currentSession]
+    ]);
+    const lockedPredictions = allPredictions.filter(p => p.lockedAt);
 
-    const scoreObj = userSessionScoreData.driverScores?.find(ds => ds.driverId === predDriverId);
-    const diff = scoreObj ? scoreObj.diff : "-";
-    const points = scoreObj ? scoreObj.points : 0;
-
-    rows.push([pos, predName, actualName, diff, points]);
-  }
-
-  rows.push([]);
-  rows.push(["", "", "Accuracy Points", userSessionScoreData.accuracyPoints, ""]);
-  rows.push(["", "", "Bonus Points", userSessionScoreData.bonusPoints, ""]);
-  
-  if (userSessionScoreData.bonuses && userSessionScoreData.bonuses.length > 0) {
-    for (const bonus of userSessionScoreData.bonuses) {
-      rows.push(["", "", `  ↳ ${bonus.label}`, "", bonus.earned ? bonus.points : 0]);
+    if (lockedPredictions.length === 0) {
+      showToast("No locked predictions found to export.", "warning");
+      return;
     }
+
+    const users = await getAllDocuments('users');
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
+
+    const allScores = await queryCollection('scores', [
+      ['raceId', '==', currentRace.id],
+      ['session', '==', currentSession]
+    ]);
+    const scoreMap = {};
+    allScores.forEach(s => {
+      scoreMap[s.userId] = s;
+    });
+
+    lockedPredictions.sort((a, b) => {
+      const scoreA = scoreMap[a.userId]?.totalPoints || 0;
+      const scoreB = scoreMap[b.userId]?.totalPoints || 0;
+      return scoreB - scoreA;
+    });
+
+    const headers = ["Position", "Official Result"];
+    const colWidths = [{ wch: 10 }, { wch: 28 }];
+    
+    lockedPredictions.forEach(p => {
+      const userName = userMap[p.userId]?.displayName || 'Unknown';
+      headers.push(`${userName} Pred`, `${userName} Diff`, `${userName} Pts`);
+      colWidths.push({ wch: 28 }, { wch: 12 }, { wch: 15 });
+    });
+
+    const rows = [
+      ["Formula 1 Prediction League — Session Results Export"],
+      [`Race: ${currentRace.name}`],
+      [`Session: ${SESSION_FULL_LABELS[currentSession]}`],
+      [],
+      headers
+    ];
+
+    let maxPos = officialResultOrder.length;
+    lockedPredictions.forEach(p => {
+      if (p.order && p.order.length > maxPos) maxPos = p.order.length;
+    });
+    maxPos = Math.max(maxPos, 22);
+
+    for (let i = 0; i < maxPos; i++) {
+      const pos = i + 1;
+      const actualDriverId = officialResultOrder[i];
+      const actualDriver = getDriver(actualDriverId);
+      const actualName = actualDriver ? `${actualDriver.code} - ${actualDriver.name}` : "-";
+
+      const row = [pos, actualName];
+
+      lockedPredictions.forEach(p => {
+        const predDriverId = p.order && p.order[i] ? p.order[i] : null;
+        const predDriver = getDriver(predDriverId);
+        const predName = predDriver ? `${predDriver.code} - ${predDriver.name}` : "-";
+
+        const userScore = scoreMap[p.userId];
+        const driverScoreObj = userScore?.driverScores?.find(ds => ds.driverId === predDriverId);
+        
+        const diff = driverScoreObj ? driverScoreObj.diff : "-";
+        const points = driverScoreObj ? driverScoreObj.points : 0;
+
+        row.push(predName, diff, points);
+      });
+
+      rows.push(row);
+    }
+
+    rows.push([]);
+
+    const accuracyRow = ["", "Accuracy Points"];
+    const bonusRow = ["", "Bonus Points"];
+    const totalRow = ["", "TOTAL SCORE"];
+    
+    lockedPredictions.forEach(p => {
+      const userScore = scoreMap[p.userId];
+      accuracyRow.push("", "", userScore ? userScore.accuracyPoints : 0);
+      bonusRow.push("", "", userScore ? userScore.bonusPoints : 0);
+      totalRow.push("", "", userScore ? userScore.totalPoints : 0);
+    });
+
+    rows.push(accuracyRow, bonusRow, totalRow);
+
+    const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
+    const workbook = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
+    
+    worksheet['!cols'] = colWidths;
+
+    const filename = `${currentRace.name.replace(/\\s+/g, '_')}_${SESSION_LABELS[currentSession]}_Results.xlsx`;
+    window.XLSX.writeFile(workbook, filename);
+    showToast("Excel exported successfully!", "success");
+
+  } catch (err) {
+    console.error("Error exporting XLSX:", err);
+    showToast("An error occurred while exporting to Excel.", "error");
   }
-
-  rows.push(["", "", "TOTAL SCORE", userSessionScoreData.totalPoints, ""]);
-
-  const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
-  const workbook = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
-
-  // Format column widths for neatness
-  worksheet['!cols'] = [
-    { wch: 10 }, // Position
-    { wch: 28 }, // Your Prediction
-    { wch: 28 }, // Official Result
-    { wch: 12 }, // Difference
-    { wch: 15 }  // Points
-  ];
-
-  const filename = `${currentRace.name.replace(/\\s+/g, '_')}_${SESSION_LABELS[currentSession]}_Results.xlsx`;
-  window.XLSX.writeFile(workbook, filename);
 }
 
 /**
