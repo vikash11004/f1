@@ -430,7 +430,9 @@ async function fetchAndShowOthersPredictions() {
 }
 
 /**
- * Handle Exasync function handleExportXLSX() {
+ * Handle Excel Export (XLSX)
+ */
+async function handleExportXLSX() {
   if (!officialResultOrder) {
     showToast("Official results are not available yet.", "warning");
     return;
