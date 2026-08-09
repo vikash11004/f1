@@ -48,8 +48,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- Admin Configuration ---
-// REPLACE with the Firebase UID of your admin account
+
 const ADMIN_UID = "HI5xCVYecISuzRVSdJAb6aHcuHe2";
 
 /**

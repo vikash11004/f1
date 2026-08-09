@@ -337,7 +337,18 @@ function openRacePanel(race) {
       danger: true,
       onConfirm: async () => {
         try {
+          const deletedRound = race.round;
           await deleteDocument('races', race.id);
+          
+          // Re-index subsequent races so round numbers remain contiguous
+          const existingRaces = await getAllDocuments('races');
+          const racesToShift = existingRaces.filter(r => r.round > deletedRound);
+          if (racesToShift.length > 0) {
+            await Promise.all(
+              racesToShift.map(r => updateDocument('races', r.id, { round: r.round - 1 }))
+            );
+          }
+
           showToast('Race deleted', 'success');
           closeSidePanel();
           renderRaces();
@@ -436,14 +447,24 @@ function openNewRacePanel() {
       return;
     }
 
-    const raceId = `r${String(round).padStart(2, '0')}`;
-
     try {
+      // 1. Shift existing races with round >= target round up (+1)
+      const existingRaces = await getAllDocuments('races');
+      const racesToShift = existingRaces.filter(r => r.round >= round);
+      if (racesToShift.length > 0) {
+        await Promise.all(
+          racesToShift.map(r => updateDocument('races', r.id, { round: r.round + 1 }))
+        );
+      }
+
+      // 2. Generate a unique document ID for the new race
+      const raceId = `r_${Date.now()}`;
+
       await setDocument('races', raceId, {
         name,
         circuit,
         country,
-        countryFlag: flag,
+        countryFlag: flag || '🏁',
         round,
         weekendType,
         startDate,
@@ -451,7 +472,7 @@ function openNewRacePanel() {
         status: 'upcoming'
       });
 
-      showToast(`${name} created!`, 'success');
+      showToast(`${name} inserted as Round ${round}!`, 'success');
       closeSidePanel();
       renderRaces();
     } catch (err) {
