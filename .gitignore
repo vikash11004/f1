@@ -1,0 +1,15 @@
+# Firebase Admin Service Account Private Keys
+serviceAccountKey.json
+serviceAccountKey*.json
+*.pem
+
+# Dependency directory
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
