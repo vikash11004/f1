@@ -225,9 +225,23 @@ function openRacePanel(race) {
       </div>
 
       <div style="margin-bottom: var(--space-6);">
-        <span class="text-label">Sessions</span>
-        <div style="margin-top: var(--space-2); display: flex; gap: var(--space-2); flex-wrap: wrap;">
-          ${sessions.map(s => `<span class="badge badge-upcoming">${SESSION_LABELS[s]}</span>`).join('')}
+        <span class="text-label">Sessions & Locks</span>
+        <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
+          ${sessions.map(s => {
+            const isSessLocked = race.status === 'locked' || race.status === 'completed' || (race.sessionLocks && race.sessionLocks[s] === true);
+            return `
+              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+                <span class="text-body-sm" style="font-weight: 600;">${SESSION_LABELS[s]}</span>
+                ${admin ? `
+                  <button class="btn btn-sm ${isSessLocked ? 'btn-danger' : 'btn-ghost'} btn-toggle-session-lock" data-session="${s}" data-locked="${isSessLocked}" style="font-size: var(--text-xs); padding: 4px 8px;">
+                    ${isSessLocked ? '🔒 Locked' : '🔓 Unlocked'}
+                  </button>
+                ` : `
+                  <span class="badge ${isSessLocked ? 'badge-locked' : 'badge-upcoming'}">${isSessLocked ? 'LOCKED' : 'OPEN'}</span>
+                `}
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
 
@@ -269,6 +283,25 @@ function openRacePanel(race) {
 
   // --- Event Listeners ---
   document.getElementById('close-panel')?.addEventListener('click', closeSidePanel);
+
+  // Session lock toggle (Admin)
+  document.querySelectorAll('.btn-toggle-session-lock').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const sess = btn.dataset.session;
+      const currentlyLocked = btn.dataset.locked === 'true';
+      const newLocks = { ...(race.sessionLocks || {}), [sess]: !currentlyLocked };
+      try {
+        await updateDocument('races', race.id, { sessionLocks: newLocks });
+        race.sessionLocks = newLocks;
+        showToast(`${SESSION_LABELS[sess]} ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
+        openRacePanel(race); // refresh panel
+        renderRaces(); // refresh list
+      } catch (err) {
+        showToast('Failed to update session lock', 'error');
+      }
+    });
+  });
 
   // Weekend type toggle
   document.querySelectorAll('.toggle-option[data-type]').forEach(btn => {

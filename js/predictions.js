@@ -99,7 +99,10 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
     const sessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
     currentSession = sessions.includes(sessionKey) ? sessionKey : sessions[0];
 
-    // Determine lock state
+    // Determine lock state (including per-session lock controls)
+    const sessionLocks = currentRace.sessionLocks || {};
+    const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+
     isLocked = false;
     isReadOnly = false;
     hasCalculatedResults = false;
@@ -107,7 +110,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
     if (!resultsMode) {
       if (currentRace.status === 'completed') {
         isReadOnly = true;
-      } else if (currentRace.status === 'locked') {
+      } else if (isCurrentSessionLocked) {
         isReadOnly = true;
         isLocked = true;
       }
@@ -196,6 +199,9 @@ function renderBuilderUI(page, sessions, sessionScores) {
     ? `<span class="badge badge-sprint">SPRINT WEEKEND</span>`
     : '';
 
+  const sessionLocks = currentRace.sessionLocks || {};
+  const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+
   page.innerHTML = `
     <div class="page-header" style="margin-bottom: var(--space-4);">
       <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
@@ -226,6 +232,11 @@ function renderBuilderUI(page, sessions, sessionScores) {
             👀 View Others
           </button>
         ` : ''}
+        ${isAdmin() ? `
+          <button class="btn btn-sm ${isCurrentSessionLocked ? 'btn-danger' : 'btn-ghost'}" id="btn-toggle-session-lock-header" style="margin-left: auto;">
+            ${isCurrentSessionLocked ? '🔒 Session Locked' : '🔓 Session Open'}
+          </button>
+        ` : ''}
       </div>
     </div>
 
@@ -234,7 +245,8 @@ function renderBuilderUI(page, sessions, sessionScores) {
       ${sessions.map(s => {
         const isActive = s === currentSession;
         const scoreStr = sessionScores[s] !== undefined ? `${sessionScores[s]} pts` : '';
-        const lockIcon = isLocked && s === currentSession ? '🔒' : '';
+        const tabIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[s] === true;
+        const lockIcon = tabIsLocked ? '🔒' : '';
         return `
           <button class="session-tab ${isActive ? 'active' : ''}" 
                   data-session="${s}" 
@@ -318,6 +330,21 @@ function renderBuilderUI(page, sessions, sessionScores) {
   // View Others' Predictions
   getPage().querySelector('#btn-view-others')?.addEventListener('click', fetchAndShowOthersPredictions);
 
+  // Toggle Session Lock in Header (Admin)
+  getPage().querySelector('#btn-toggle-session-lock-header')?.addEventListener('click', async () => {
+    const sessionLocks = currentRace.sessionLocks || {};
+    const currentlyLocked = sessionLocks[currentSession] === true;
+    const newLocks = { ...sessionLocks, [currentSession]: !currentlyLocked };
+    try {
+      await updateDocument('races', currentRace.id, { sessionLocks: newLocks });
+      currentRace.sessionLocks = newLocks;
+      showToast(`${SESSION_LABELS[currentSession]} ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
+      await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
+    } catch (err) {
+      showToast('Failed to update session lock', 'error');
+    }
+  });
+
   // Edit Results (Admin)
   getPage().querySelector('#btn-edit-results')?.addEventListener('click', () => {
     isReadOnly = false;
@@ -349,8 +376,15 @@ async function fetchAndShowOthersPredictions() {
       ['session', '==', currentSession]
     ]);
 
-    // Filter for locked predictions, excluding the current user
-    const lockedPredictions = allPredictions.filter(p => p.lockedAt && p.userId !== auth.currentUser.uid);
+    const adminUser = isAdmin();
+    const sessionLocks = currentRace.sessionLocks || {};
+    const sessionIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+
+    // Filter predictions to show
+    const lockedPredictions = allPredictions.filter(p => {
+      if (adminUser) return p.userId !== auth.currentUser.uid;
+      return (p.lockedAt || sessionIsLocked) && p.userId !== auth.currentUser.uid;
+    });
 
     if (lockedPredictions.length === 0) {
       document.getElementById('side-panel').innerHTML = `
