@@ -66,11 +66,24 @@ function getPage() {
  * @param {string} sessionKey 
  * @param {boolean} resultsMode - true if admin results entry
  */
-async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) {
+async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, editMode = false) {
   const page = resultsMode
     ? document.getElementById('results-page')
     : document.getElementById('predict-page');
   if (!page) return;
+
+  // Block admin from making predictions (they should only use results mode)
+  if (!resultsMode && isAdmin()) {
+    page.innerHTML = `
+      <div class="empty-state">
+        ${renderEmptyStateSVG()}
+        <h3 class="empty-state-title">Admins cannot enter predictions</h3>
+        <p class="empty-state-text">As the admin, you manage race results instead of making predictions.</p>
+        <button class="btn btn-secondary" onclick="window.location.hash='#dashboard'">Back to Dashboard</button>
+      </div>
+    `;
+    return;
+  }
 
   isResultsMode = resultsMode;
 
@@ -124,7 +137,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false) 
       if (existingResult?.order) {
         existingOrder = existingResult.order;
       }
-      if (existingResult?.calculatedAt) {
+      if (existingResult?.calculatedAt && !editMode) {
         hasCalculatedResults = true;
         isReadOnly = true;
       }
@@ -345,11 +358,9 @@ function renderBuilderUI(page, sessions, sessionScores) {
     }
   });
 
-  // Edit Results (Admin)
+  // Edit Results (Admin) — full re-render to reset all state cleanly
   getPage().querySelector('#btn-edit-results')?.addEventListener('click', () => {
-    isReadOnly = false;
-    hasCalculatedResults = false;
-    renderBuilderUI(page, sessions, sessionScores);
+    renderPredictionBuilder(currentRace.id, currentSession, true, true);
   });
 
   // Show confirm bar if all filled
