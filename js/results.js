@@ -27,15 +27,28 @@ import { showToast, navigateTo } from './ui.js';
  * @param {string} raceId 
  * @param {string} sessionKey 
  */
-async function renderResults(raceId, sessionKey) {
+async function renderResults(raceId, sessionKey, editOverride = false) {
   // Admin guard
   if (!isAdmin()) {
     navigateTo('leaderboard');
     return;
   }
 
+  // Check if results already exist — if so, enter edit mode directly
+  let useEditMode = editOverride;
+  if (!editOverride) {
+    try {
+      const existingResult = await getDocument('results', `${raceId}_${sessionKey}`);
+      if (existingResult?.calculatedAt) {
+        useEditMode = true;
+      }
+    } catch (e) {
+      // No existing result, normal entry mode
+    }
+  }
+
   // Use the prediction builder in results mode
-  await renderPredictionBuilder(raceId, sessionKey, true);
+  await renderPredictionBuilder(raceId, sessionKey, true, useEditMode);
 }
 
 /**
@@ -141,7 +154,7 @@ async function processResults(raceId, session, officialOrder) {
     await batch.commit();
 
     // 5. Show results breakdown
-    showResultsBreakdown(page, playerScores, officialOrder, session);
+    showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
 
     showToast(`Scores calculated for ${SESSION_FULL_LABELS[session] || session}!`, 'success');
 
@@ -159,7 +172,7 @@ async function processResults(raceId, session, officialOrder) {
  * @param {Array} officialOrder 
  * @param {string} session 
  */
-async function showResultsBreakdown(page, playerScores, officialOrder, session) {
+async function showResultsBreakdown(page, playerScores, officialOrder, raceId, session) {
   if (!page) return;
 
   // Get user names
@@ -174,9 +187,11 @@ async function showResultsBreakdown(page, playerScores, officialOrder, session) 
 
   page.innerHTML = `
     <div class="page-header">
-      <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
         <button class="btn btn-ghost btn-sm" id="btn-back-results">← Back to Races</button>
         <h1 class="page-title text-display" style="margin-bottom: 0; font-size: var(--text-xl);">${sessionLabel} — Results</h1>
+        <span class="badge" style="background: var(--status-completed); color: white; border: none;">CONFIRMED</span>
+        <button class="btn btn-secondary btn-sm" id="btn-edit-results-breakdown" style="margin-left: auto;">✏️ Edit Results</button>
       </div>
       <p class="page-subtitle">${playerScores.length} players scored</p>
     </div>
@@ -243,6 +258,11 @@ async function showResultsBreakdown(page, playerScores, officialOrder, session) 
   // Back button
   document.getElementById('btn-back-results')?.addEventListener('click', () => {
     navigateTo('races');
+  });
+
+  // Edit Results button
+  document.getElementById('btn-edit-results-breakdown')?.addEventListener('click', () => {
+    renderResults(raceId, session, true);
   });
 }
 

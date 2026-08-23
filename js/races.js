@@ -245,7 +245,7 @@ function openRacePanel(race) {
         </div>
       </div>
 
-      ${admin && race.status !== 'completed' ? `
+      ${admin && race.status !== 'upcoming' ? `
         <div style="margin-bottom: var(--space-6);">
           <span class="text-label">Actions</span>
           <div style="margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
@@ -257,6 +257,11 @@ function openRacePanel(race) {
             ${race.status === 'locked' || race.status === 'active' ? `
               <button class="btn btn-secondary" id="btn-enter-results">
                 Enter Results
+              </button>
+            ` : ''}
+            ${race.status === 'completed' ? `
+              <button class="btn btn-secondary" id="btn-enter-results">
+                ✏️ Edit Results
               </button>
             ` : ''}
           </div>
