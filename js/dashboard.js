@@ -8,7 +8,8 @@ import {
   isAdmin,
   queryCollection,
   getAllDocuments,
-  getDocument
+  getDocument,
+  updateDocument
 } from './firebase.js';
 import { SESSION_KEYS } from './seed.js';
 import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
@@ -18,7 +19,9 @@ import {
   cardSkeletonHTML,
   getCountdown,
   pad,
-  formatRound
+  formatRound,
+  showModal,
+  showToast
 } from './ui.js';
 
 // --- State ---
@@ -108,7 +111,9 @@ async function renderDashboard() {
     const nextRaceCard = document.getElementById('card-next-race');
     if (nextRaceCard) {
       const handleNextRaceClick = () => {
-        if (displayRace) {
+        if (admin) {
+          navigateTo('races');
+        } else if (displayRace) {
           const sessions = SESSION_KEYS[displayRace.weekendType];
           if (sessions && sessions.length > 0) {
             navigateTo('predict', displayRace.id, sessions[0]);
@@ -216,6 +221,39 @@ async function renderDashboard() {
         </div>
       `;
       document.getElementById('cta-manage')?.addEventListener('click', () => {
+        window.location.hash = '#races';
+      });
+    } else if (!activeRace && nextUpcoming && admin) {
+      ctaContainer.innerHTML = `
+        <div class="card card-cta animate-card-enter" id="cta-activate-next" style="margin-top: var(--space-4);">
+          <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+            <div>
+              <h3 class="text-display-sm" style="margin-bottom: var(--space-1);">Activate Next Race</h3>
+              <p class="text-body-sm text-muted">${nextUpcoming.name} (${nextUpcoming.circuit}) is ready for predictions.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-dashboard-activate">Activate Predictions →</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btn-dashboard-activate')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showModal({
+          title: 'Activate Predictions?',
+          message: `This will open predictions for ${nextUpcoming.name} for all players. Continue?`,
+          confirmText: 'Activate Predictions',
+          onConfirm: async () => {
+            try {
+              await updateDocument('races', nextUpcoming.id, { status: 'active' });
+              showToast('Predictions activated!', 'success');
+              renderDashboard();
+            } catch (err) {
+              showToast('Failed to activate predictions', 'error');
+            }
+          }
+        });
+      });
+      document.getElementById('cta-activate-next')?.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
         window.location.hash = '#races';
       });
     } else {

@@ -116,12 +116,26 @@ function renderRaceList(races) {
     return;
   }
 
+  const admin = isAdmin();
   container.innerHTML = races.map((race, i) => {
     const sprintBadge = race.weekendType === 'sprint'
       ? `<span class="badge badge-sprint">SPRINT</span>`
       : `<span class="badge badge-standard">STANDARD</span>`;
 
     const statusBadge = getStatusBadge(race.status);
+
+    let adminActionBtn = '';
+    if (admin) {
+      if (race.status === 'upcoming') {
+        adminActionBtn = `<button class="btn btn-sm btn-primary btn-quick-status" data-race-id="${race.id}" data-next-status="active" style="padding: 4px 10px; font-size: var(--text-xs);">Activate Predictions</button>`;
+      } else if (race.status === 'active') {
+        adminActionBtn = `<button class="btn btn-sm btn-secondary btn-quick-status" data-race-id="${race.id}" data-next-status="locked" style="padding: 4px 10px; font-size: var(--text-xs);">Lock Predictions</button>`;
+      } else if (race.status === 'locked') {
+        adminActionBtn = `<button class="btn btn-sm btn-secondary btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">Enter Results</button>`;
+      } else if (race.status === 'completed') {
+        adminActionBtn = `<button class="btn btn-sm btn-ghost btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">✏️ Edit Results</button>`;
+      }
+    }
 
     return `
       <div class="card card-interactive animate-card-enter stagger-${(i % 6) + 1}" 
@@ -138,6 +152,7 @@ function renderRaceList(races) {
             <div style="display: flex; align-items: center; gap: var(--space-2);">
               ${sprintBadge}
               ${statusBadge}
+              ${adminActionBtn}
             </div>
           </div>
         </div>
@@ -145,7 +160,55 @@ function renderRaceList(races) {
     `;
   }).join('');
   
-  // Listeners are now handled globally via event delegation on document.body
+  // Quick status transition listener (Admin)
+  container.querySelectorAll('.btn-quick-status').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const raceId = btn.dataset.raceId;
+      const nextStatus = btn.dataset.nextStatus;
+      const race = races.find(r => r.id === raceId);
+      if (!race) return;
+
+      const labels = {
+        active: 'Activate Predictions',
+        locked: 'Lock Predictions',
+        completed: 'Mark as Completed'
+      };
+      const messages = {
+        active: 'This will open predictions for all players. Continue?',
+        locked: 'This will freeze all predictions. No player can make changes after this. Continue?',
+        completed: 'This will finalize the race and update the leaderboard. Continue?'
+      };
+
+      showModal({
+        title: `${labels[nextStatus]}?`,
+        message: messages[nextStatus],
+        confirmText: labels[nextStatus],
+        danger: nextStatus === 'locked',
+        onConfirm: async () => {
+          try {
+            await updateDocument('races', raceId, { status: nextStatus });
+            showToast(`Race status: ${nextStatus.toUpperCase()}`, 'success');
+            renderRaces();
+          } catch (err) {
+            showToast('Failed to update status', 'error');
+          }
+        }
+      });
+    });
+  });
+
+  // Quick results listener (Admin)
+  container.querySelectorAll('.btn-quick-results').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const raceId = btn.dataset.raceId;
+      const race = races.find(r => r.id === raceId);
+      if (!race) return;
+      const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+      navigateTo('results', raceId, sessions[0]);
+    });
+  });
 }
 
 /**
@@ -245,7 +308,7 @@ function openRacePanel(race) {
         </div>
       </div>
 
-      ${admin && race.status !== 'upcoming' ? `
+      ${admin ? `
         <div style="margin-bottom: var(--space-6);">
           <span class="text-label">Actions</span>
           <div style="margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
