@@ -288,20 +288,26 @@ function openRacePanel(race) {
       </div>
 
       <div style="margin-bottom: var(--space-6);">
-        <span class="text-label">Sessions & Locks</span>
+        <span class="text-label">Sessions, Locks & Status</span>
         <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
           ${sessions.map(s => {
             const isSessLocked = race.status === 'locked' || race.status === 'completed' || (race.sessionLocks && race.sessionLocks[s] === true);
+            const isSessVoided = race.cancelledSessions && race.cancelledSessions[s] === true;
             return `
-              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); gap: 6px;">
                 <span class="text-body-sm" style="font-weight: 600;">${SESSION_LABELS[s]}</span>
-                ${admin ? `
-                  <button class="btn btn-sm ${isSessLocked ? 'btn-danger' : 'btn-ghost'} btn-toggle-session-lock" data-session="${s}" data-locked="${isSessLocked}" style="font-size: var(--text-xs); padding: 4px 8px;">
-                    ${isSessLocked ? '🔒 Locked' : '🔓 Unlocked'}
-                  </button>
-                ` : `
-                  <span class="badge ${isSessLocked ? 'badge-locked' : 'badge-upcoming'}">${isSessLocked ? 'LOCKED' : 'OPEN'}</span>
-                `}
+                <div style="display: flex; gap: 4px; align-items: center;">
+                  ${admin ? `
+                    <button class="btn btn-sm ${isSessLocked ? 'btn-danger' : 'btn-ghost'} btn-toggle-session-lock" data-session="${s}" data-locked="${isSessLocked}" style="font-size: var(--text-xs); padding: 4px 8px;">
+                      ${isSessLocked ? '🔒 Locked' : '🔓 Unlocked'}
+                    </button>
+                    <button class="btn btn-sm ${isSessVoided ? 'btn-ghost' : 'btn-secondary'} btn-toggle-session-void" data-session="${s}" data-voided="${isSessVoided}" style="font-size: var(--text-xs); padding: 4px 8px;">
+                      ${isSessVoided ? '↩️ Restore' : '🚫 Void'}
+                    </button>
+                  ` : `
+                    <span class="badge ${isSessVoided ? 'badge-danger' : (isSessLocked ? 'badge-locked' : 'badge-upcoming')}" style="${isSessVoided ? 'background: #e63946; color: white;' : ''}">${isSessVoided ? 'CANCELLED' : (isSessLocked ? 'LOCKED' : 'OPEN')}</span>
+                  `}
+                </div>
               </div>
             `;
           }).join('')}
@@ -367,6 +373,25 @@ function openRacePanel(race) {
         renderRaces(); // refresh list
       } catch (err) {
         showToast('Failed to update session lock', 'error');
+      }
+    });
+  });
+
+  // Session void toggle (Admin)
+  document.querySelectorAll('.btn-toggle-session-void').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const sess = btn.dataset.session;
+      const currentlyVoided = btn.dataset.voided === 'true';
+      const newCancelled = { ...(race.cancelledSessions || {}), [sess]: !currentlyVoided };
+      try {
+        await updateDocument('races', race.id, { cancelledSessions: newCancelled });
+        race.cancelledSessions = newCancelled;
+        showToast(`${SESSION_LABELS[sess]} ${!currentlyVoided ? 'VOIDED / CANCELLED' : 'RESTORED'}`, !currentlyVoided ? 'warning' : 'success');
+        openRacePanel(race); // refresh panel
+        renderRaces(); // refresh list
+      } catch (err) {
+        showToast('Failed to update session void status', 'error');
       }
     });
   });

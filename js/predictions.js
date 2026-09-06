@@ -112,16 +112,18 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     const sessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
     currentSession = sessions.includes(sessionKey) ? sessionKey : sessions[0];
 
-    // Determine lock state (including per-session lock controls)
+    // Determine lock and void state (including per-session controls)
     const sessionLocks = currentRace.sessionLocks || {};
-    const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+    const cancelledSessions = currentRace.cancelledSessions || {};
+    const isCurrentSessionVoided = cancelledSessions[currentSession] === true;
+    const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true || isCurrentSessionVoided;
 
     isLocked = false;
     isReadOnly = false;
     hasCalculatedResults = false;
 
     if (!resultsMode) {
-      if (currentRace.status === 'completed') {
+      if (currentRace.status === 'completed' || isCurrentSessionVoided) {
         isReadOnly = true;
       } else if (isCurrentSessionLocked) {
         isReadOnly = true;
@@ -213,7 +215,9 @@ function renderBuilderUI(page, sessions, sessionScores) {
     : '';
 
   const sessionLocks = currentRace.sessionLocks || {};
-  const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+  const cancelledSessions = currentRace.cancelledSessions || {};
+  const isCurrentSessionVoided = cancelledSessions[currentSession] === true;
+  const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true || isCurrentSessionVoided;
 
   page.innerHTML = `
     <div class="page-header" style="margin-bottom: var(--space-4);">
@@ -222,33 +226,40 @@ function renderBuilderUI(page, sessions, sessionScores) {
         <span class="badge-round text-display">${formatRound(currentRace.round)}</span>
         <h1 class="page-title text-display" style="margin-bottom: 0; font-size: var(--text-xl);">${currentRace.name}</h1>
         ${sprintBadge}
-        ${isResultsMode 
-          ? (hasCalculatedResults 
-              ? `<span class="badge" style="background: var(--status-completed); color: white; border: none;">RESULTS CONFIRMED</span>
-                 <button class="btn btn-secondary btn-sm" id="btn-edit-results" style="margin-left: var(--space-2);">Edit Results</button>` 
-              : '<span class="badge badge-active">ADMIN: RESULTS ENTRY</span>') 
-          : (userSessionScoreData ? `
-              <span class="badge" style="background: var(--accent); color: white; border: none;">SCORE: ${userSessionScoreData.totalPoints} PTS</span>
-              <button class="btn btn-ghost btn-sm" id="btn-export-xlsx" style="margin-left: var(--space-2);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px; vertical-align: text-bottom;">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="8" y1="13" x2="16" y2="13"></line>
-                  <line x1="8" y1="17" x2="16" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                Export Excel
-              </button>
-            ` : '')}
-        ${(playerHasLocked && !isResultsMode) ? `
+        ${isCurrentSessionVoided 
+          ? '<span class="badge" style="background: #e63946; color: white; border: none;">SESSION CANCELLED / VOIDED</span>'
+          : (isResultsMode 
+            ? (hasCalculatedResults 
+                ? `<span class="badge" style="background: var(--status-completed); color: white; border: none;">RESULTS CONFIRMED</span>
+                   <button class="btn btn-secondary btn-sm" id="btn-edit-results" style="margin-left: var(--space-2);">Edit Results</button>` 
+                : '<span class="badge badge-active">ADMIN: RESULTS ENTRY</span>') 
+            : (userSessionScoreData ? `
+                <span class="badge" style="background: var(--accent); color: white; border: none;">SCORE: ${userSessionScoreData.totalPoints} PTS</span>
+                <button class="btn btn-ghost btn-sm" id="btn-export-xlsx" style="margin-left: var(--space-2);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px; vertical-align: text-bottom;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                    <line x1="8" y1="17" x2="16" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  Export Excel
+                </button>
+              ` : ''))}
+        ${(playerHasLocked && !isResultsMode && !isCurrentSessionVoided) ? `
           <button class="btn btn-secondary btn-sm" id="btn-view-others" style="margin-left: var(--space-2);">
             👀 View Others
           </button>
         ` : ''}
         ${isAdmin() ? `
-          <button class="btn btn-sm ${isCurrentSessionLocked ? 'btn-danger' : 'btn-ghost'}" id="btn-toggle-session-lock-header" style="margin-left: auto;">
-            ${isCurrentSessionLocked ? '🔒 Session Locked' : '🔓 Session Open'}
-          </button>
+          <div style="margin-left: auto; display: flex; gap: var(--space-2); flex-wrap: wrap;">
+            <button class="btn btn-sm ${isCurrentSessionLocked ? 'btn-danger' : 'btn-ghost'}" id="btn-toggle-session-lock-header">
+              ${isCurrentSessionLocked ? '🔒 Session Locked' : '🔓 Session Open'}
+            </button>
+            <button class="btn btn-sm ${isCurrentSessionVoided ? 'btn-ghost' : 'btn-danger'}" id="btn-toggle-session-void-header">
+              ${isCurrentSessionVoided ? '↩️ Restore Session' : '🚫 Void Session'}
+            </button>
+          </div>
         ` : ''}
       </div>
     </div>
@@ -258,8 +269,9 @@ function renderBuilderUI(page, sessions, sessionScores) {
       ${sessions.map(s => {
         const isActive = s === currentSession;
         const scoreStr = sessionScores[s] !== undefined ? `${sessionScores[s]} pts` : '';
+        const tabIsVoided = cancelledSessions[s] === true;
         const tabIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[s] === true;
-        const lockIcon = tabIsLocked ? '🔒' : '';
+        const lockIcon = tabIsVoided ? '🚫' : (tabIsLocked ? '🔒' : '');
         return `
           <button class="session-tab ${isActive ? 'active' : ''}" 
                   data-session="${s}" 
@@ -267,70 +279,84 @@ function renderBuilderUI(page, sessions, sessionScores) {
                   aria-selected="${isActive}"
                   aria-label="${SESSION_FULL_LABELS[s]}">
             ${SESSION_LABELS[s]}
-            ${scoreStr ? `<span class="tab-score">${scoreStr}</span>` : ''}
+            ${tabIsVoided ? `<span class="tab-score" style="color: #ff4d4d; font-weight: bold;">CANCELLED</span>` : (scoreStr ? `<span class="tab-score">${scoreStr}</span>` : '')}
             ${lockIcon ? `<span class="tab-lock">${lockIcon}</span>` : ''}
           </button>
         `;
       }).join('')}
     </div>
 
-    <!-- Save Indicator -->
-    <div style="display: flex; justify-content: flex-end; padding: var(--space-2) 0;">
-      <span class="save-indicator" id="save-indicator"></span>
-    </div>
-
-    <!-- Two-Panel Layout -->
-    <div class="prediction-layout">
-      <!-- Order List (Left) -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">${isResultsMode ? 'Official Order' : 'Your Prediction'}</span>
-          <span class="panel-count text-data" id="filled-count">${orderedDrivers.length}/22</span>
-        </div>
-        <div class="order-list" id="order-list" role="list">
-          ${renderOrderList()}
-        </div>
+    ${isCurrentSessionVoided ? `
+      <!-- Cancelled Session Banner -->
+      <div class="empty-state" style="padding: var(--space-8) var(--space-4); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-top: var(--space-4);">
+        <div style="font-size: 3.5rem; margin-bottom: var(--space-2);">🚫</div>
+        <h3 class="empty-state-title" style="color: var(--text-primary); font-size: var(--text-lg);">Session Cancelled / Voided</h3>
+        <p class="empty-state-text" style="max-width: 480px; margin: 0 auto var(--space-4) auto;">
+          This session has been officially cancelled by Race Control. Predictions are voided and no points are awarded for this session.
+        </p>
+        <button class="btn btn-secondary" onclick="window.location.hash='#races'">Back to Calendar</button>
+      </div>
+    ` : `
+      <!-- Save Indicator -->
+      <div style="display: flex; justify-content: flex-end; padding: var(--space-2) 0;">
+        <span class="save-indicator" id="save-indicator"></span>
       </div>
 
-      <!-- Right Panel: Official Result or Driver Pool -->
-      ${(!isResultsMode && hasCalculatedResults) ? `
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Official Result</span>
-          <span class="panel-count text-data">22/22</span>
+      <!-- Two-Panel Layout -->
+      <div class="prediction-layout">
+        <!-- Order List (Left) -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">${isResultsMode ? 'Official Order' : 'Your Prediction'}</span>
+            <span class="panel-count text-data" id="filled-count">${orderedDrivers.length}/22</span>
+          </div>
+          <div class="order-list" id="order-list" role="list">
+            ${renderOrderList()}
+          </div>
         </div>
-        <div class="order-list" role="list">
-          ${renderOfficialOrderList()}
-        </div>
-      </div>
-      ` : `
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Driver Pool</span>
-          <span class="panel-count text-data" id="pool-count">${poolDrivers.length} available</span>
-        </div>
-        <div class="driver-pool" id="driver-pool" role="list">
-          ${renderPool()}
-        </div>
-      </div>
-      `}
-    </div>
 
-    <!-- Confirm Bar -->
-    <div class="confirm-bar hidden" id="confirm-bar">
-      <p class="confirm-bar-message" id="confirm-message"></p>
-      <div class="confirm-bar-actions">
-        <button class="btn btn-secondary" id="btn-review">Review</button>
-        <button class="btn btn-primary" id="btn-confirm"></button>
+        <!-- Right Panel: Official Result or Driver Pool -->
+        ${(!isResultsMode && hasCalculatedResults) ? `
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Official Result</span>
+            <span class="panel-count text-data">22/22</span>
+          </div>
+          <div class="order-list" role="list">
+            ${renderOfficialOrderList()}
+          </div>
+        </div>
+        ` : `
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Driver Pool</span>
+            <span class="panel-count text-data" id="pool-count">${poolDrivers.length} available</span>
+          </div>
+          <div class="driver-pool" id="driver-pool" role="list">
+            ${renderPool()}
+          </div>
+        </div>
+        `}
       </div>
-    </div>
+
+      <!-- Confirm Bar -->
+      <div class="confirm-bar hidden" id="confirm-bar">
+        <p class="confirm-bar-message" id="confirm-message"></p>
+        <div class="confirm-bar-actions">
+          <button class="btn btn-secondary" id="btn-review">Review</button>
+          <button class="btn btn-primary" id="btn-confirm"></button>
+        </div>
+      </div>
+    `}
   `;
 
   // --- Bind Events ---
   bindTabEvents(sessions);
-  bindPoolEvents();
-  bindOrderEvents();
-  bindConfirmEvents();
+  if (!isCurrentSessionVoided) {
+    bindPoolEvents();
+    bindOrderEvents();
+    bindConfirmEvents();
+  }
 
   // Back button
   getPage().querySelector('#btn-back-predict')?.addEventListener('click', () => {
@@ -358,13 +384,30 @@ function renderBuilderUI(page, sessions, sessionScores) {
     }
   });
 
+  // Toggle Session Void in Header (Admin)
+  getPage().querySelector('#btn-toggle-session-void-header')?.addEventListener('click', async () => {
+    const cancelledSessions = currentRace.cancelledSessions || {};
+    const currentlyVoided = cancelledSessions[currentSession] === true;
+    const newCancelled = { ...cancelledSessions, [currentSession]: !currentlyVoided };
+    try {
+      await updateDocument('races', currentRace.id, { cancelledSessions: newCancelled });
+      currentRace.cancelledSessions = newCancelled;
+      showToast(`${SESSION_LABELS[currentSession]} ${!currentlyVoided ? 'VOIDED / CANCELLED' : 'RESTORED'}`, !currentlyVoided ? 'warning' : 'success');
+      await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
+    } catch (err) {
+      showToast('Failed to update session void status', 'error');
+    }
+  });
+
   // Edit Results (Admin) — full re-render to reset all state cleanly
   getPage().querySelector('#btn-edit-results')?.addEventListener('click', () => {
     renderPredictionBuilder(currentRace.id, currentSession, true, true);
   });
 
   // Show confirm bar if all filled
-  updateConfirmBar();
+  if (!isCurrentSessionVoided) {
+    updateConfirmBar();
+  }
 }
 
 /**
