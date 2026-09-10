@@ -388,6 +388,25 @@ function openRacePanel(race) {
         await updateDocument('races', race.id, { cancelledSessions: newCancelled });
         race.cancelledSessions = newCancelled;
         showToast(`${SESSION_LABELS[sess]} ${!currentlyVoided ? 'VOIDED / CANCELLED' : 'RESTORED'}`, !currentlyVoided ? 'warning' : 'success');
+
+        // Auto-complete race if all non-voided sessions have results
+        if (!currentlyVoided && (race.status === 'locked' || race.status === 'active')) {
+          const allSessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+          const nonVoidedSessions = allSessions.filter(s => newCancelled[s] !== true);
+          let allDone = true;
+          for (const s of nonVoidedSessions) {
+            try {
+              const res = await getDocument('results', `${race.id}_${s}`);
+              if (!res?.calculatedAt) { allDone = false; break; }
+            } catch { allDone = false; break; }
+          }
+          if (allDone) {
+            await updateDocument('races', race.id, { status: 'completed' });
+            race.status = 'completed';
+            showToast('All sessions resolved — race auto-completed!', 'success');
+          }
+        }
+
         openRacePanel(race); // refresh panel
         renderRaces(); // refresh list
       } catch (err) {

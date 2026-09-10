@@ -8,6 +8,7 @@ import {
   isAdmin,
   getDocument,
   setDocument,
+  updateDocument,
   getAllDocuments,
   queryCollection,
   serverTimestamp
@@ -393,6 +394,25 @@ function renderBuilderUI(page, sessions, sessionScores) {
       await updateDocument('races', currentRace.id, { cancelledSessions: newCancelled });
       currentRace.cancelledSessions = newCancelled;
       showToast(`${SESSION_LABELS[currentSession]} ${!currentlyVoided ? 'VOIDED / CANCELLED' : 'RESTORED'}`, !currentlyVoided ? 'warning' : 'success');
+
+      // Auto-complete race if all non-voided sessions have results
+      if (!currentlyVoided && (currentRace.status === 'locked' || currentRace.status === 'active')) {
+        const allSessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
+        const nonVoidedSessions = allSessions.filter(s => newCancelled[s] !== true);
+        let allDone = true;
+        for (const s of nonVoidedSessions) {
+          try {
+            const res = await getDocument('results', `${currentRace.id}_${s}`);
+            if (!res?.calculatedAt) { allDone = false; break; }
+          } catch { allDone = false; break; }
+        }
+        if (allDone) {
+          await updateDocument('races', currentRace.id, { status: 'completed' });
+          currentRace.status = 'completed';
+          showToast('All sessions resolved — race auto-completed!', 'success');
+        }
+      }
+
       await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
     } catch (err) {
       showToast('Failed to update session void status', 'error');

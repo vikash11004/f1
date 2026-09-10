@@ -65,6 +65,30 @@ async function renderDashboard() {
     // Sort races by round
     races.sort((a, b) => a.round - b.round);
 
+    // Auto-resolve any active/locked races whose sessions are all completed or voided
+    for (const r of races) {
+      if (r.status === 'active' || r.status === 'locked') {
+        const allSessions = SESSION_KEYS[r.weekendType] || SESSION_KEYS.standard;
+        const cancelled = r.cancelledSessions || {};
+        const nonVoided = allSessions.filter(s => cancelled[s] !== true);
+
+        let allDone = true;
+        for (const s of nonVoided) {
+          try {
+            const res = await getDocument('results', `${r.id}_${s}`);
+            if (!res?.calculatedAt) { allDone = false; break; }
+          } catch { allDone = false; break; }
+        }
+
+        if (allDone) {
+          r.status = 'completed';
+          updateDocument('races', r.id, { status: 'completed' }).catch(err =>
+            console.error('[Dashboard] Failed to auto-complete race:', err)
+          );
+        }
+      }
+    }
+
     // Find active race (could be active or locked)
     const activeRace = races.find(r => r.status === 'active' || r.status === 'locked');
     

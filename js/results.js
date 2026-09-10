@@ -15,7 +15,7 @@ import {
   getDocRef,
   serverTimestamp
 } from './firebase.js';
-import { SESSION_FULL_LABELS, getDriverById } from './seed.js';
+import { SESSION_KEYS, SESSION_FULL_LABELS, getDriverById } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG } from './drivers.js';
 import { calculateSessionScore, isRaceType, sortByActualPosition } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
@@ -145,10 +145,27 @@ async function processResults(raceId, session, officialOrder) {
       });
     }
 
-    // Auto-complete the race if the main race session is processed
-    if (session === 'race') {
-      const raceRef = getDocRef('races', raceId);
-      batch.update(raceRef, { status: 'completed' });
+    // Auto-complete the race if all non-voided sessions now have results
+    const raceDoc = await getDocument('races', raceId);
+    if (raceDoc && raceDoc.status !== 'completed') {
+      const allSessions = SESSION_KEYS[raceDoc.weekendType] || SESSION_KEYS.standard;
+      const cancelledSessions = raceDoc.cancelledSessions || {};
+      const nonVoidedSessions = allSessions.filter(s => cancelledSessions[s] !== true);
+      
+      // Check if every non-voided session has confirmed results
+      let allDone = true;
+      for (const s of nonVoidedSessions) {
+        if (s === session) continue; // This session is being processed right now
+        try {
+          const res = await getDocument('results', `${raceId}_${s}`);
+          if (!res?.calculatedAt) { allDone = false; break; }
+        } catch { allDone = false; break; }
+      }
+      
+      if (allDone && nonVoidedSessions.length > 0) {
+        const raceRef = getDocRef('races', raceId);
+        batch.update(raceRef, { status: 'completed' });
+      }
     }
 
     await batch.commit();
