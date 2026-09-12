@@ -26,6 +26,7 @@ import { showToast, navigateTo } from './ui.js';
  * Delegates to prediction builder in results mode
  * @param {string} raceId 
  * @param {string} sessionKey 
+ * @param {boolean} editOverride - whether to force edit mode
  */
 async function renderResults(raceId, sessionKey, editOverride = false) {
   // Admin guard
@@ -34,21 +35,8 @@ async function renderResults(raceId, sessionKey, editOverride = false) {
     return;
   }
 
-  // Check if results already exist — if so, enter edit mode directly
-  let useEditMode = editOverride;
-  if (!editOverride) {
-    try {
-      const existingResult = await getDocument('results', `${raceId}_${sessionKey}`);
-      if (existingResult?.calculatedAt) {
-        useEditMode = true;
-      }
-    } catch (e) {
-      // No existing result, normal entry mode
-    }
-  }
-
-  // Use the prediction builder in results mode
-  await renderPredictionBuilder(raceId, sessionKey, true, useEditMode);
+  // Use the prediction builder in results mode directly with editOverride
+  await renderPredictionBuilder(raceId, sessionKey, true, editOverride);
 }
 
 /**
@@ -63,7 +51,6 @@ async function processResults(raceId, session, officialOrder) {
   
   // Show calculating spinner
   if (page) {
-    const existingContent = page.innerHTML;
     page.innerHTML = `
       <div class="spinner-overlay">
         <div class="spinner-lg"></div>
@@ -87,9 +74,35 @@ async function processResults(raceId, session, officialOrder) {
       ['session', '==', session]
     ]);
 
+    const batch = createBatch();
+
+    // Auto-complete the race if all non-voided sessions now have results
+    const raceDoc = await getDocument('races', raceId);
+    if (raceDoc && raceDoc.status !== 'completed') {
+      const allSessions = SESSION_KEYS[raceDoc.weekendType] || SESSION_KEYS.standard;
+      const cancelledSessions = raceDoc.cancelledSessions || {};
+      const nonVoidedSessions = allSessions.filter(s => cancelledSessions[s] !== true);
+      
+      // Check if every non-voided session has confirmed results
+      let allDone = true;
+      for (const s of nonVoidedSessions) {
+        if (s === session) continue; // This session is being saved right now
+        try {
+          const res = await getDocument('results', `${raceId}_${s}`);
+          if (!res?.calculatedAt) { allDone = false; break; }
+        } catch { allDone = false; break; }
+      }
+      
+      if (allDone && nonVoidedSessions.length > 0) {
+        const raceRef = getDocRef('races', raceId);
+        batch.update(raceRef, { status: 'completed' });
+      }
+    }
+
     if (predictions.length === 0) {
-      showToast('No predictions found for this session', 'warning');
-      navigateTo('races');
+      await batch.commit();
+      showToast(`Results confirmed for ${SESSION_FULL_LABELS[session] || session}! (0 player predictions)`, 'info');
+      await renderPredictionBuilder(raceId, session, true, false);
       return;
     }
 
@@ -109,8 +122,6 @@ async function processResults(raceId, session, officialOrder) {
     }
 
     // 4. Batch update user scores and save per-prediction scores
-    const batch = createBatch();
-
     for (const ps of playerScores) {
       // Calculate delta to avoid double counting if results are edited
       const oldScoreDoc = await getDocument('scores', `${ps.userId}_${raceId}_${session}`);
@@ -145,33 +156,10 @@ async function processResults(raceId, session, officialOrder) {
       });
     }
 
-    // Auto-complete the race if all non-voided sessions now have results
-    const raceDoc = await getDocument('races', raceId);
-    if (raceDoc && raceDoc.status !== 'completed') {
-      const allSessions = SESSION_KEYS[raceDoc.weekendType] || SESSION_KEYS.standard;
-      const cancelledSessions = raceDoc.cancelledSessions || {};
-      const nonVoidedSessions = allSessions.filter(s => cancelledSessions[s] !== true);
-      
-      // Check if every non-voided session has confirmed results
-      let allDone = true;
-      for (const s of nonVoidedSessions) {
-        if (s === session) continue; // This session is being processed right now
-        try {
-          const res = await getDocument('results', `${raceId}_${s}`);
-          if (!res?.calculatedAt) { allDone = false; break; }
-        } catch { allDone = false; break; }
-      }
-      
-      if (allDone && nonVoidedSessions.length > 0) {
-        const raceRef = getDocRef('races', raceId);
-        batch.update(raceRef, { status: 'completed' });
-      }
-    }
-
     await batch.commit();
 
     // 5. Show results breakdown
-    showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
+    await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
 
     showToast(`Scores calculated for ${SESSION_FULL_LABELS[session] || session}!`, 'success');
 
@@ -183,14 +171,31 @@ async function processResults(raceId, session, officialOrder) {
 }
 
 /**
- * Display the score breakdown after calculation
+ * Display the score breakdown after calculation or on request
  * @param {HTMLElement} page 
  * @param {Array} playerScores 
  * @param {Array} officialOrder 
+ * @param {string} raceId
  * @param {string} session 
  */
 async function showResultsBreakdown(page, playerScores, officialOrder, raceId, session) {
   if (!page) return;
+
+  // Load race data for session tabs
+  const raceDoc = await getDocument('races', raceId);
+  const sessions = raceDoc ? (SESSION_KEYS[raceDoc.weekendType] || SESSION_KEYS.standard) : [session];
+  const cancelledSessions = raceDoc?.cancelledSessions || {};
+
+  // Check confirmed results status for all sessions
+  const sessionResultsStatus = {};
+  for (const s of sessions) {
+    try {
+      const resDoc = await getDocument('results', `${raceId}_${s}`);
+      if (resDoc?.calculatedAt) {
+        sessionResultsStatus[s] = true;
+      }
+    } catch (e) {}
+  }
 
   // Get user names
   const users = await getAllDocuments('users');
@@ -203,9 +208,10 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   const sessionLabel = SESSION_FULL_LABELS[session] || session;
 
   page.innerHTML = `
-    <div class="page-header">
+    <div class="page-header" style="margin-bottom: var(--space-4);">
       <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
         <button class="btn btn-ghost btn-sm" id="btn-back-results">← Back to Races</button>
+        <button class="btn btn-secondary btn-sm" id="btn-view-order-breakdown">📋 Finishing Order</button>
         <h1 class="page-title text-display" style="margin-bottom: 0; font-size: var(--text-xl);">${sessionLabel} — Results</h1>
         <span class="badge" style="background: var(--status-completed); color: white; border: none;">CONFIRMED</span>
         <button class="btn btn-secondary btn-sm" id="btn-edit-results-breakdown" style="margin-left: auto;">✏️ Edit Results</button>
@@ -213,11 +219,40 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
       <p class="page-subtitle">${playerScores.length} players scored</p>
     </div>
 
+    <!-- Session Tabs -->
+    <div class="session-tabs" id="session-tabs" role="tablist" style="margin-bottom: var(--space-4);">
+      ${sessions.map(s => {
+        const isActive = s === session;
+        const tabIsVoided = cancelledSessions[s] === true;
+        const isConfirmed = sessionResultsStatus[s] === true;
+        return `
+          <button class="session-tab ${isActive ? 'active' : ''}" 
+                  data-session="${s}" 
+                  role="tab" 
+                  aria-selected="${isActive}"
+                  aria-label="${SESSION_FULL_LABELS[s]}">
+            ${SESSION_LABELS[s]}
+            ${tabIsVoided 
+              ? `<span class="tab-score" style="color: #ff4d4d; font-weight: bold;">CANCELLED</span>` 
+              : (isConfirmed 
+                  ? `<span class="tab-score" style="color: var(--status-completed); font-weight: bold;">✓ CONFIRMED</span>` 
+                  : `<span class="tab-score" style="color: var(--text-muted);">PENDING</span>`)}
+          </button>
+        `;
+      }).join('')}
+    </div>
+
     <div class="result-grid" id="results-grid">
-      ${playerScores.map((ps, index) => {
+      ${playerScores.length === 0 ? `
+        <div class="empty-state" style="grid-column: 1 / -1; padding: var(--space-8) var(--space-4);">
+          ${renderEmptyStateSVG()}
+          <h3 class="empty-state-title">No predictions scored</h3>
+          <p class="empty-state-text">No players entered predictions for this session.</p>
+        </div>
+      ` : playerScores.map((ps, index) => {
         const user = userMap[ps.userId];
         const userName = user?.displayName || 'Unknown Player';
-        const sortedScores = sortByActualPosition(ps.driverScores);
+        const sortedScores = sortByActualPosition(ps.driverScores || []);
 
         return `
           <div class="result-player-card animate-card-enter stagger-${(index % 6) + 1}">
@@ -257,7 +292,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                       </tr>
                     `;
                   }).join('')}
-                  ${ps.bonuses.filter(b => b.earned).map(b => `
+                  ${(ps.bonuses || []).filter(b => b.earned).map(b => `
                     <tr class="bonus-row">
                       <td colspan="4">${b.label}</td>
                       <td>+${b.points}</td>
@@ -277,14 +312,79 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
     navigateTo('races');
   });
 
+  // View Finishing Order button
+  document.getElementById('btn-view-order-breakdown')?.addEventListener('click', () => {
+    renderResults(raceId, session, false);
+  });
+
   // Edit Results button
   document.getElementById('btn-edit-results-breakdown')?.addEventListener('click', () => {
     renderResults(raceId, session, true);
   });
+
+  // Session tabs
+  page.querySelectorAll('.session-tab[data-session]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetSession = tab.dataset.session;
+      if (targetSession === session) return;
+      navigateTo('results', raceId, targetSession);
+    });
+  });
+}
+
+/**
+ * Load and display results breakdown for a race session
+ * @param {string} raceId 
+ * @param {string} session 
+ */
+async function renderResultsBreakdown(raceId, session) {
+  const page = document.getElementById('results-page');
+  if (!page) return;
+
+  page.innerHTML = `
+    <div class="spinner-overlay">
+      <div class="spinner-lg"></div>
+      <span class="spinner-text">Loading scores...</span>
+    </div>
+  `;
+
+  try {
+    const existingResult = await getDocument('results', `${raceId}_${session}`);
+    const officialOrder = existingResult?.order || [];
+
+    // Get predictions
+    const predictions = await queryCollection('predictions', [
+      ['raceId', '==', raceId],
+      ['session', '==', session]
+    ]);
+
+    const playerScores = [];
+    for (const pred of predictions) {
+      if (!pred.order || pred.order.length !== 22) continue;
+      const scoreDoc = await getDocument('scores', `${pred.userId}_${raceId}_${session}`);
+      if (scoreDoc) {
+        playerScores.push(scoreDoc);
+      } else {
+        const result = calculateSessionScore(pred.order, officialOrder, session);
+        playerScores.push({
+          userId: pred.userId,
+          predictionId: pred.id,
+          ...result
+        });
+      }
+    }
+
+    await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
+  } catch (err) {
+    console.error('[Results] Error showing breakdown:', err);
+    showToast('Failed to load score breakdown', 'error');
+    renderResults(raceId, session, false);
+  }
 }
 
 // --- Exports ---
 export {
   renderResults,
-  processResults
+  processResults,
+  renderResultsBreakdown
 };

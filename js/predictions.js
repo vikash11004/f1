@@ -51,6 +51,7 @@ let selectedPoolDriver = null; // For mobile tap-to-select
 let saveTimeout = null;
 let isResultsMode = false;    // true when admin is entering results
 let hasCalculatedResults = false;
+let isEditingExistingResults = false;
 let officialResultOrder = null;
 let userSessionScoreData = null;
 
@@ -122,6 +123,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     isLocked = false;
     isReadOnly = false;
     hasCalculatedResults = false;
+    isEditingExistingResults = false;
 
     if (!resultsMode) {
       if (currentRace.status === 'completed' || isCurrentSessionVoided) {
@@ -140,9 +142,14 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       if (existingResult?.order) {
         existingOrder = existingResult.order;
       }
-      if (existingResult?.calculatedAt && !editMode) {
-        hasCalculatedResults = true;
-        isReadOnly = true;
+      if (existingResult?.calculatedAt) {
+        if (!editMode) {
+          hasCalculatedResults = true;
+          isReadOnly = true;
+        } else {
+          isEditingExistingResults = true;
+          isReadOnly = false;
+        }
       }
     } else {
       const predId = `${auth.currentUser.uid}_${raceId}_${currentSession}`;
@@ -176,7 +183,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     orderedDrivers = existingOrder.filter(id => allDriverIds.includes(id));
     poolDrivers = allDriverIds.filter(id => !orderedDrivers.includes(id));
 
-    // Load session scores if completed
+    // Load session scores if completed (for players)
     let sessionScores = {};
     if (currentRace.status === 'completed' || isLocked) {
       for (const s of sessions) {
@@ -191,8 +198,23 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       }
     }
 
+    // Load confirmed status for all sessions (for admin in results mode)
+    let sessionResultsStatus = {};
+    if (resultsMode) {
+      for (const s of sessions) {
+        try {
+          const resDoc = await getDocument('results', `${raceId}_${s}`);
+          if (resDoc?.calculatedAt) {
+            sessionResultsStatus[s] = true;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
     // Render the page
-    renderBuilderUI(page, sessions, sessionScores);
+    renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus);
 
   } catch (error) {
     console.error('[Predictions] Error:', error);
@@ -210,7 +232,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
 /**
  * Render the builder UI
  */
-function renderBuilderUI(page, sessions, sessionScores) {
+function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {}) {
   const sprintBadge = currentRace.weekendType === 'sprint'
     ? `<span class="badge badge-sprint">SPRINT WEEKEND</span>`
     : '';
@@ -232,8 +254,12 @@ function renderBuilderUI(page, sessions, sessionScores) {
           : (isResultsMode 
             ? (hasCalculatedResults 
                 ? `<span class="badge" style="background: var(--status-completed); color: white; border: none;">RESULTS CONFIRMED</span>
-                   <button class="btn btn-secondary btn-sm" id="btn-edit-results" style="margin-left: var(--space-2);">Edit Results</button>` 
-                : '<span class="badge badge-active">ADMIN: RESULTS ENTRY</span>') 
+                   <button class="btn btn-secondary btn-sm" id="btn-edit-results" style="margin-left: var(--space-2);">✏️ Edit Results</button>
+                   <button class="btn btn-primary btn-sm" id="btn-view-breakdown" style="margin-left: var(--space-2);">📊 View Scores</button>` 
+                : (isEditingExistingResults
+                    ? `<span class="badge" style="background: var(--sprint-amber); color: white; border: none;">EDITING RESULTS</span>
+                       <button class="btn btn-ghost btn-sm" id="btn-cancel-edit-results" style="margin-left: var(--space-2);">Cancel</button>`
+                    : '<span class="badge badge-active">ADMIN: RESULTS ENTRY</span>'))
             : (userSessionScoreData ? `
                 <span class="badge" style="background: var(--accent); color: white; border: none;">SCORE: ${userSessionScoreData.totalPoints} PTS</span>
                 <button class="btn btn-ghost btn-sm" id="btn-export-xlsx" style="margin-left: var(--space-2);">
@@ -273,6 +299,7 @@ function renderBuilderUI(page, sessions, sessionScores) {
         const tabIsVoided = cancelledSessions[s] === true;
         const tabIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[s] === true;
         const lockIcon = tabIsVoided ? '🚫' : (tabIsLocked ? '🔒' : '');
+        const isConfirmed = isResultsMode && sessionResultsStatus[s] === true;
         return `
           <button class="session-tab ${isActive ? 'active' : ''}" 
                   data-session="${s}" 
@@ -280,7 +307,13 @@ function renderBuilderUI(page, sessions, sessionScores) {
                   aria-selected="${isActive}"
                   aria-label="${SESSION_FULL_LABELS[s]}">
             ${SESSION_LABELS[s]}
-            ${tabIsVoided ? `<span class="tab-score" style="color: #ff4d4d; font-weight: bold;">CANCELLED</span>` : (scoreStr ? `<span class="tab-score">${scoreStr}</span>` : '')}
+            ${tabIsVoided 
+              ? `<span class="tab-score" style="color: #ff4d4d; font-weight: bold;">CANCELLED</span>` 
+              : (isResultsMode 
+                ? (isConfirmed 
+                    ? `<span class="tab-score" style="color: var(--status-completed); font-weight: bold;">✓ CONFIRMED</span>` 
+                    : `<span class="tab-score" style="color: var(--text-muted);">PENDING</span>`)
+                : (scoreStr ? `<span class="tab-score">${scoreStr}</span>` : ''))}
             ${lockIcon ? `<span class="tab-lock">${lockIcon}</span>` : ''}
           </button>
         `;
@@ -422,6 +455,17 @@ function renderBuilderUI(page, sessions, sessionScores) {
   // Edit Results (Admin) — full re-render to reset all state cleanly
   getPage().querySelector('#btn-edit-results')?.addEventListener('click', () => {
     renderPredictionBuilder(currentRace.id, currentSession, true, true);
+  });
+
+  // Cancel Edit Results (Admin)
+  getPage().querySelector('#btn-cancel-edit-results')?.addEventListener('click', () => {
+    renderPredictionBuilder(currentRace.id, currentSession, true, false);
+  });
+
+  // View Scores Breakdown (Admin)
+  getPage().querySelector('#btn-view-breakdown')?.addEventListener('click', async () => {
+    const { renderResultsBreakdown } = await import('./results.js');
+    renderResultsBreakdown(currentRace.id, currentSession);
   });
 
   // Show confirm bar if all filled
@@ -1056,8 +1100,10 @@ function updateConfirmBar() {
     bar.classList.remove('hidden');
 
     if (isResultsMode) {
-      message.textContent = "This will trigger score calculation for all players.";
-      confirmBtn.textContent = "Confirm Results ✓";
+      message.textContent = isEditingExistingResults
+        ? "This will recalculate scores for all players based on the new order."
+        : "This will trigger score calculation for all players.";
+      confirmBtn.textContent = isEditingExistingResults ? "Update Results ✓" : "Confirm Results ✓";
     } else {
       message.textContent = "This is your final order for this session. You won't be able to change it.";
       confirmBtn.textContent = "Lock It ✓";
@@ -1137,10 +1183,13 @@ async function handleConfirmResults() {
   // Import results module dynamically to avoid circular deps
   const { processResults } = await import('./results.js');
   
+  const isUpdate = isEditingExistingResults;
   showModal({
-    title: 'Confirm Results?',
-    message: 'This will trigger score calculation for all players who made predictions for this session.',
-    confirmText: 'Confirm Results ✓',
+    title: isUpdate ? 'Update Results?' : 'Confirm Results?',
+    message: isUpdate
+      ? 'This will recalculate scores for all players who made predictions for this session.'
+      : 'This will trigger score calculation for all players who made predictions for this session.',
+    confirmText: isUpdate ? 'Update Results ✓' : 'Confirm Results ✓',
     onConfirm: async () => {
       await processResults(currentRace.id, currentSession, orderedDrivers);
     }
@@ -1162,6 +1211,7 @@ function cleanupPredictions() {
   selectedPoolDriver = null;
   isResultsMode = false;
   hasCalculatedResults = false;
+  isEditingExistingResults = false;
   officialResultOrder = null;
   userSessionScoreData = null;
 }
