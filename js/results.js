@@ -15,7 +15,7 @@ import {
   getDocRef,
   serverTimestamp
 } from './firebase.js';
-import { SESSION_KEYS, SESSION_FULL_LABELS, getDriverById } from './seed.js';
+import { SESSION_KEYS, SESSION_LABELS, SESSION_FULL_LABELS, getDriverById } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG } from './drivers.js';
 import { calculateSessionScore, isRaceType, sortByActualPosition } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
