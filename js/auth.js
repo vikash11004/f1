@@ -13,6 +13,8 @@ import {
   setDocument,
   getDocument
 } from './firebase.js';
+import { renderAuthShell } from './auth-view.js';
+import { escapeHTML, icon } from './design.js';
 import { seedData } from './seed.js';
 import { navigateTo, showToast } from './ui.js';
 import { initChat, cleanupChat } from './chat.js';
@@ -87,9 +89,9 @@ function updateAuthUI(user) {
   if (user) {
     if (appHeader) appHeader.classList.remove('hidden');
     if (headerActions) {
-      const displayName = user.displayName || user.email.split('@')[0];
+      const displayName = escapeHTML(user.displayName || user.email.split('@')[0]);
       headerActions.innerHTML = `
-        <span class="header-user">
+        <span class="header-user"><span class="user-avatar">${displayName.slice(0, 1)}</span>
           <span class="text-body-sm">${displayName}</span>
         </span>
         <button class="btn btn-ghost btn-sm" id="btn-signout" aria-label="Sign out">
@@ -110,50 +112,7 @@ function renderAuthScreen() {
   const page = document.getElementById('auth-page');
   if (!page) return;
 
-  page.innerHTML = `
-    <div class="auth-layout">
-      <div class="auth-card card" id="auth-card">
-        <div class="card-body" style="padding: var(--space-8);">
-          <div style="text-align: center; margin-bottom: var(--space-8);">
-            <h1 class="text-display-lg" style="font-size: var(--text-2xl); margin-bottom: var(--space-2);">
-              F1 <span style="color: var(--accent);">PREDICT</span>
-            </h1>
-            <p class="text-body-sm text-muted">Predict. Compete. Win.</p>
-          </div>
-
-          <form id="auth-form" novalidate>
-            <div id="name-group" class="form-group hidden">
-              <label class="form-label" for="auth-name">Display Name</label>
-              <input class="form-input" type="text" id="auth-name" placeholder="Your name" autocomplete="name">
-              <span class="form-error hidden" id="name-error"></span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="auth-email">Email</label>
-              <input class="form-input" type="email" id="auth-email" placeholder="you@email.com" required autocomplete="email">
-              <span class="form-error hidden" id="email-error"></span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="auth-password">Password</label>
-              <input class="form-input" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password" minlength="6">
-              <span class="form-error hidden" id="password-error"></span>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg" id="auth-submit" style="width: 100%; margin-top: var(--space-4);">
-              Sign in
-            </button>
-          </form>
-
-          <div style="text-align: center; margin-top: var(--space-5);">
-            <button class="btn btn-ghost btn-sm" id="auth-toggle" type="button">
-              Create account
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  renderAuthShell(true);
 
   // --- Event Listeners ---
   let isSignUp = false;
@@ -166,10 +125,21 @@ function renderAuthScreen() {
   toggleBtn.addEventListener('click', () => {
     isSignUp = !isSignUp;
     nameGroup.classList.toggle('hidden', !isSignUp);
-    submitBtn.textContent = isSignUp ? 'Create account' : 'Sign in';
-    toggleBtn.textContent = isSignUp ? 'Already have an account? Sign in' : 'Create account';
+    submitBtn.innerHTML = `<span>${isSignUp ? 'Join the grid' : 'Enter the paddock'}</span>${icon('arrow')}`;
+    toggleBtn.innerHTML = `${isSignUp ? 'Sign in' : 'Create an account'} ${icon('arrow', 'diagonal-arrow')}`;
+    document.getElementById('auth-title').innerHTML = isSignUp ? 'Your season.<br>Your story.' : 'Welcome to<br>the paddock.';
+    document.getElementById('auth-description').textContent = isSignUp ? 'Join the league. Make your first prediction.' : 'Your next winning prediction starts here.';
+    document.getElementById('auth-switch-label').textContent = isSignUp ? 'Already on the grid?' : 'New to the grid?';
+    document.querySelector('.form-number').textContent = isSignUp ? '02 / JOIN THE GRID' : '01 / SIGN IN';
     passwordInput.autocomplete = isSignUp ? 'new-password' : 'current-password';
     clearErrors();
+  });
+
+  document.getElementById('password-toggle').addEventListener('click', (event) => {
+    const visible = passwordInput.type === 'password';
+    passwordInput.type = visible ? 'text' : 'password';
+    event.currentTarget.setAttribute('aria-pressed', String(visible));
+    event.currentTarget.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
   });
 
   form.addEventListener('submit', async (e) => {
@@ -185,6 +155,10 @@ function renderAuthScreen() {
       showFieldError('email', 'Email is required');
       return;
     }
+    if (!document.getElementById('auth-email').validity.valid) {
+      showFieldError('email', 'Enter a valid email address');
+      return;
+    }
     if (!password || password.length < 6) {
       showFieldError('password', 'Password must be at least 6 characters');
       return;
@@ -196,6 +170,7 @@ function renderAuthScreen() {
 
     // Disable button and show spinner
     submitBtn.disabled = true;
+    toggleBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner"></span>';
 
     try {
@@ -212,7 +187,8 @@ function renderAuthScreen() {
       setTimeout(() => card.classList.remove('animate-shake'), 500);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = isSignUp ? 'Create account' : 'Sign in';
+      toggleBtn.disabled = false;
+      submitBtn.innerHTML = `<span>${isSignUp ? 'Join the grid' : 'Enter the paddock'}</span>${icon('arrow')}`;
     }
   });
 }
@@ -293,6 +269,8 @@ function showFieldError(field, message) {
   }
   if (inputEl) {
     inputEl.classList.add('error');
+    inputEl.setAttribute('aria-invalid', 'true');
+    inputEl.focus();
   }
 }
 
@@ -306,7 +284,7 @@ function clearErrors() {
     el.classList.add('hidden');
     el.textContent = '';
   });
-  inputs.forEach(el => el.classList.remove('error'));
+  inputs.forEach(el => { el.classList.remove('error'); el.removeAttribute('aria-invalid'); });
 }
 
 /**

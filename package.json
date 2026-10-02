@@ -1,5 +1,11 @@
 {
   "dependencies": {
     "firebase-admin": "^14.3.0"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  },
+  "scripts": {
+    "test:ui": "node tests/ui-smoke.cjs"
   }
 }

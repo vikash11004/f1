@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" fill="none">
+  <defs>
+    <linearGradient id="body" x1="410" y1="200" x2="600" y2="650" gradientUnits="userSpaceOnUse"><stop stop-color="#ff775e"/><stop offset=".45" stop-color="#f03d2c"/><stop offset="1" stop-color="#9c211b"/></linearGradient>
+    <linearGradient id="metal" x1="400" y1="200" x2="600" y2="200" gradientUnits="userSpaceOnUse"><stop stop-color="#151719"/><stop offset=".5" stop-color="#414548"/><stop offset="1" stop-color="#151719"/></linearGradient>
+    <linearGradient id="rubber"><stop stop-color="#080909"/><stop offset=".5" stop-color="#292b2c"/><stop offset="1" stop-color="#090a0b"/></linearGradient>
+    <filter id="shadow" x="-70%" y="-40%" width="240%" height="200%"><feDropShadow dx="30" dy="30" stdDeviation="20" flood-opacity=".6"/></filter>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" stroke="#fff" stroke-opacity=".045"/></pattern>
+  </defs>
+  <path fill="url(#grid)" d="M0 0h1000v760H0z"/>
+  <g transform="translate(50 -60) rotate(28 500 410)">
+    <path d="M245 -80V860M755 -80V860" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
+    <path d="M260 -80V860M740 -80V860" stroke="#fff" stroke-opacity=".025" stroke-width="14"/>
+    <path d="M210 0v130m0 80v210m580-320v240m0 80v250" stroke="#f44332" stroke-opacity=".55" stroke-width="3"/>
+    <g filter="url(#shadow)">
+      <!-- Carbon wings and suspension -->
+      <path d="M346 604H654L638 657H362Z" fill="#101213" stroke="#535657"/>
+      <path d="M353 619h294M358 637h284" stroke="#7b7f80" stroke-width="3"/>
+      <path d="M355 595v70h22v-70m246 0v70h22v-70" fill="#ec4633"/>
+      <path d="M355 240l145 48 145-48M359 205l141 111 141-111M347 510l153 50 153-50M356 566l144-52 144 52" stroke="#181b1d" stroke-width="14"/>
+      <path d="M355 240l145 48 145-48M347 510l153 50 153-50" stroke="#626869" stroke-width="2"/>
+      <!-- Slick tires -->
+      <g fill="url(#rubber)" stroke="#454749" stroke-width="2">
+        <rect x="306" y="172" width="78" height="132" rx="22"/><rect x="616" y="172" width="78" height="132" rx="22"/>
+        <rect x="292" y="479" width="94" height="155" rx="24"/><rect x="614" y="479" width="94" height="155" rx="24"/>
+      </g>
+      <g stroke="#dcae57" stroke-width="2" opacity=".65"><path d="M316 196v84m68-84v84m242-84v84m58-84v84M302 504v105m74-105v105m248-105v105m74-105v105"/></g>
+      <!-- Floor, sculpted sidepods and nose -->
+      <path d="M425 309h150l36 250-42 42H431l-42-42z" fill="#161a1b" stroke="#494b4d"/>
+      <path d="M473 113h54l14 201 32 19 22 167-53 91h-84l-53-91 22-167 32-19z" fill="url(#body)" stroke="#ff8066" stroke-opacity=".55" stroke-width="2"/>
+      <path d="M433 343l-11 140 39 75-14-130 12-85m108 0 11 140-39 75 14-130-12-85" fill="#bd2b23"/>
+      <path d="M428 347l25 2-11 54-16 30m146-86-25 2 11 54 16 30" fill="#171b1d"/>
+      <path d="M482 126h36l9 165h-54z" fill="#fb6047"/>
+      <path d="M500 130v142" stroke="#ffb197" stroke-width="2"/>
+      <path d="M474 463h52l20 116h-92z" fill="#f34d34"/>
+      <path d="M493 473h14v105h-14z" fill="#f4eee3"/>
+      <!-- Cockpit and halo -->
+      <ellipse cx="500" cy="382" rx="36" ry="60" fill="#101416"/>
+      <path d="M470 349q30-30 60 0l-3 79q-27 29-54 0z" fill="#101416" stroke="#74251f" stroke-width="5"/>
+      <ellipse cx="500" cy="393" rx="19" ry="24" fill="#e9e4d9"/><path d="M482 387h36v12h-36z" fill="#262a2c"/>
+      <path d="M460 389v-43q40-48 80 0v43m-40-65v44" stroke="#25292b" stroke-width="10"/>
+      <path d="M461 344q39-46 78 0" stroke="#727775" stroke-width="2"/>
+      <!-- Front wing -->
+      <path d="M345 115q155 35 310 0l-6 53q-149 26-298 0z" fill="url(#metal)" stroke="#7b7e7d"/>
+      <path d="M351 137q149 29 298 0m-295 17q146 28 292 0" stroke="#b6b7b0" stroke-width="2"/>
+      <path d="M337 105h20v73h-20zm306 0h20v73h-20z" fill="#f34732"/>
+      <path d="M481 111h38v58h-38z" fill="#f35b40"/>
+      <text x="500" y="240" text-anchor="middle" fill="#f6efe2" font-family="Arial,sans-serif" font-weight="900" font-style="italic" font-size="37">01</text>
+      <text x="500" y="530" text-anchor="middle" fill="#171b1d" font-family="Arial,sans-serif" font-weight="900" font-size="12" letter-spacing="1" transform="rotate(-90 500 530)">PREDICT</text>
+    </g>
+  </g>
+  <g stroke="#f1eee5" stroke-opacity=".3"><path d="M100 615h80m-40-40v80M795 160h80m-40-40v80"/><circle cx="835" cy="160" r="24"/></g>
+</svg>

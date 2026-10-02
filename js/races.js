@@ -1,3 +1,4 @@
+import { escapeHTML, icon, pageHeading } from './design.js';
 // ============================================
 // F1 PREDICTION LEAGUE — RACES
 // Race list · Side panel · CRUD · Status
@@ -27,6 +28,7 @@ import {
 
 // Global cache for races to support event delegation across the app
 let _cachedRaces = [];
+let calendarFilter = 'all';
 
 // Global event delegation for ALL race cards across the app (dashboard and races page)
 document.body.addEventListener('click', async (e) => {
@@ -50,6 +52,14 @@ document.body.addEventListener('click', async (e) => {
   if (race) openRacePanel(race);
 });
 
+document.body.addEventListener('keydown', (event) => {
+  const row = event.target.closest('.race-calendar-row');
+  if (row && event.target === row && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    row.click();
+  }
+});
+
 /**
  * Render the Race Management page
  */
@@ -58,10 +68,10 @@ async function renderRaces() {
   if (!page) return;
 
   page.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title text-display">Race Calendar</h1>
-      <p class="page-subtitle">2026 Formula 1 World Championship</p>
-    </div>
+    ${pageHeading('THE SEASON / RACE CALENDAR', 'Around the world. All in.', 'One season. Every circuit. A new chance to get it right.', '<span class="season-label">2026 WORLD CHAMPIONSHIP</span>')}
+    <div class="calendar-toolbar"><div class="calendar-filters" role="group" aria-label="Filter races">
+      ${[['all', 'All races'], ['upcoming', 'Upcoming'], ['active', 'Open now'], ['completed', 'Completed']].map(([value, label]) => `<button class="filter-btn ${calendarFilter === value ? 'active' : ''}" data-filter="${value}" aria-pressed="${calendarFilter === value}">${label}</button>`).join('')}
+    </div><span class="calendar-count" id="calendar-count"></span></div>
     <div class="race-list" id="race-list">
       ${rowSkeletonHTML(22)}
     </div>
@@ -78,7 +88,17 @@ async function renderRaces() {
     const races = await getAllDocuments('races');
     races.sort((a, b) => a.round - b.round);
     _cachedRaces = races; // Update cache
-    renderRaceList(races);
+    applyCalendarFilter();
+    page.querySelectorAll('[data-filter]').forEach(button => {
+      button.addEventListener('click', () => {
+        calendarFilter = button.dataset.filter;
+        page.querySelectorAll('[data-filter]').forEach(item => {
+          item.classList.toggle('active', item === button);
+          item.setAttribute('aria-pressed', String(item === button));
+        });
+        applyCalendarFilter();
+      });
+    });
 
     // FAB click handler
     document.getElementById('btn-new-race')?.addEventListener('click', () => {
@@ -97,6 +117,13 @@ async function renderRaces() {
   }
 }
 
+function applyCalendarFilter() {
+  const races = calendarFilter === 'all' ? _cachedRaces : _cachedRaces.filter(race => race.status === calendarFilter);
+  renderRaceList(races);
+  const count = document.getElementById('calendar-count');
+  if (count) count.textContent = `${String(races.length).padStart(2, '0')} RACE${races.length === 1 ? '' : 'S'} / 2026`;
+}
+
 /**
  * Render the race list rows
  * @param {Array} races 
@@ -109,8 +136,8 @@ function renderRaceList(races) {
     container.innerHTML = `
       <div class="empty-state">
         ${renderEmptyStateSVG()}
-        <h3 class="empty-state-title">No races found</h3>
-        <p class="empty-state-text">The race calendar hasn't been set up yet.</p>
+        <h3 class="empty-state-title">A clear stretch of track.</h3>
+        <p class="empty-state-text">No races in this view yet. Check another filter or come back soon.</p>
       </div>
     `;
     return;
@@ -138,26 +165,16 @@ function renderRaceList(races) {
     }
 
     return `
-      <div class="card card-interactive animate-card-enter stagger-${(i % 6) + 1}" 
-           data-race-id="${race.id}" 
-           id="race-row-${race.id}">
-        <div class="card-body race-row-body">
-          <div style="display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
-            <span class="badge-round text-display" style="min-width: 42px;">${formatRound(race.round)}</span>
-            <span style="font-size: var(--text-lg);">${race.countryFlag}</span>
-            <div style="flex: 1; min-width: 200px;">
-              <h3 class="text-display-sm" style="font-size: var(--text-base); margin-bottom: 2px;">${race.name}</h3>
-              <p class="text-body-sm text-muted">${race.circuit} · ${race.startDate || ''}</p>
-            </div>
-            <div style="display: flex; align-items: center; gap: var(--space-2);">
-              ${sprintBadge}
-              ${statusBadge}
-              ${adminActionBtn}
-            </div>
-          </div>
+      <div class="card card-interactive race-calendar-row animate-card-enter stagger-${(i % 6) + 1}"
+           data-race-id="${escapeHTML(race.id)}" data-status="${escapeHTML(race.status)}" role="button" tabindex="0" aria-label="${escapeHTML(race.name)} — race details" id="race-row-${escapeHTML(race.id)}">
+        <div class="race-row-body">
+          <span class="race-round"><small>ROUND</small><strong>${String(race.round).padStart(2, '0')}</strong></span>
+          <span class="race-flag">${escapeHTML(race.countryFlag)}</span>
+          <div class="race-row-info"><h3>${escapeHTML(race.name)}</h3><p>${escapeHTML(race.circuit)}${race.startDate ? ' · ' + escapeHTML(race.startDate) : ''}</p></div>
+          <div class="race-row-meta">${sprintBadge}${statusBadge}${adminActionBtn}</div>
+          ${icon('arrow', 'race-row-arrow')}
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
   
   // Quick status transition listener (Admin)

@@ -1,3 +1,4 @@
+import { escapeHTML, icon, pageHeading } from './design.js';
 // ============================================
 // F1 PREDICTION LEAGUE — DASHBOARD
 // Info cards · Countdown · CTA
@@ -42,14 +43,12 @@ async function renderDashboard() {
 
   // Show skeleton
   page.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title text-display">Dashboard</h1>
-      <p class="page-subtitle">Your F1 Prediction League headquarters</p>
-    </div>
+    ${pageHeading('THE PADDOCK / OVERVIEW', 'Every point starts here.', 'Your race weekend. Your predictions. Your shot at the top.', '<span class="season-label"><span class="status-dot"></span> 2026 SEASON</span>')}
     <div class="dashboard-grid" id="dashboard-grid">
       ${cardSkeletonHTML(4)}
     </div>
-    <div id="dashboard-cta"></div>
+    <div id="dashboard-cta" class="dashboard-cta"></div>
+    <div id="season-overview"></div>
   `;
 
   try {
@@ -111,6 +110,16 @@ async function renderDashboard() {
       .sort((a, b) => b.seasonPoints - a.seasonPoints);
 
     const leader = rankedUsers[0];
+    const userRank = rankedUsers.findIndex(user => user.id === currentUser?.uid) + 1;
+    document.getElementById('season-overview').innerHTML = `
+      <div class="section-label"><span>YOUR SEASON AT A GLANCE</span><a href="#leaderboard">Full standings ${icon('arrow')}</a></div>
+      <div class="season-strip">
+        <div class="season-stat"><strong>${userRank ? String(userRank).padStart(2, '0') : '—'}</strong><span>Championship position</span></div>
+        <div class="season-stat"><strong>${currentUserDoc?.seasonPoints || 0}</strong><span>Season points</span></div>
+        <div class="season-stat"><strong>${currentUserDoc?.lastEventScore || 0}</strong><span>Last event points</span></div>
+        <div class="season-stat"><strong>${currentUserDoc?.wins || 0}</strong><span>Race wins</span></div>
+      </div>`;
+
 
     // Render cards
     const grid = document.getElementById('dashboard-grid');
@@ -309,188 +318,48 @@ async function renderDashboard() {
  */
 function renderNextRaceCard(race) {
   if (!race) {
-    return `
-      <div class="card card-cta card-interactive animate-card-enter stagger-1" id="card-next-race" role="button" tabindex="0">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-          <span class="text-label">Next Race</span>
-          <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-        </div>
-        <div class="card-body">
-          <p class="text-muted">No upcoming races scheduled</p>
-        </div>
-      </div>
-    `;
+    return `<div class="card race-hero card-interactive" id="card-next-race" role="button" tabindex="0">
+      <div class="race-hero-copy"><p class="eyebrow">THE NEXT CHAPTER</p><h2>The grid is<br>getting ready.</h2><p class="race-hero-location">The next Grand Prix will appear here once it is scheduled.</p><div class="race-hero-footer"><span class="race-hero-link">Explore the calendar ${icon('arrow')}</span></div></div>
+      <div class="race-hero-art"><img src="assets/race-car.svg" alt="" width="1000" height="760"><span class="race-hero-art-label">EVERY POSITION MATTERS.</span></div></div>`;
   }
-
-  const sprintBadge = race.weekendType === 'sprint'
-    ? `<span class="badge badge-sprint">SPRINT WEEKEND</span>`
-    : `<span class="badge badge-standard">STANDARD</span>`;
-
-  let statusLabel = '';
-  if (race.status === 'active') {
-    statusLabel = `<span class="text-body-sm" style="color: var(--status-active);">Predictions open!</span>`;
-  } else if (race.status === 'locked') {
-    statusLabel = `<span class="text-body-sm" style="color: var(--warning);">Predictions locked</span>`;
-  } else {
-    statusLabel = `<span class="text-body-sm text-muted">Upcoming</span>`;
-  }
-
-  return `
-    <div class="card card-cta card-interactive animate-card-enter stagger-1" id="card-next-race" role="button" tabindex="0">
-      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <span class="text-label">Next Race</span>
-        <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
+  const open = race.status === 'active';
+  const label = open ? 'PREDICTIONS OPEN' : race.status === 'locked' ? 'PREDICTIONS LOCKED' : 'COMING UP NEXT';
+  return `<div class="card race-hero card-interactive animate-card-enter" id="card-next-race" role="button" tabindex="0" aria-label="${escapeHTML(race.name)} — view race">
+    <div class="race-hero-copy">
+      <p class="eyebrow"><span class="status-dot" style="background: ${open ? '#617b43' : '#7b816e'}"></span> ${label} <span> / </span> ${race.weekendType === 'sprint' ? 'SPRINT WEEKEND' : 'GRAND PRIX WEEKEND'}</p>
+      <h2>${escapeHTML(race.name)}</h2><p class="race-hero-location">${escapeHTML(race.circuit)} · ${escapeHTML(race.country)}</p>
+      <div class="countdown" id="countdown-display" aria-label="Time until the race">
+        <div class="countdown-unit"><span class="countdown-value" id="cd-days">--</span><span class="countdown-label">DAYS</span></div>
+        <div class="countdown-unit"><span class="countdown-value" id="cd-hours">--</span><span class="countdown-label">HOURS</span></div>
+        <div class="countdown-unit"><span class="countdown-value" id="cd-mins">--</span><span class="countdown-label">MINS</span></div>
+        <div class="countdown-unit"><span class="countdown-value" id="cd-secs">--</span><span class="countdown-label">SECS</span></div>
       </div>
-      <div class="card-body">
-        <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
-          <span class="badge-round text-display">${formatRound(race.round)}</span>
-          <span style="font-size: var(--text-xl);">${race.countryFlag}</span>
-          ${sprintBadge}
-        </div>
-        <h3 class="text-display-sm" style="margin-bottom: var(--space-1);">${race.name}</h3>
-        <p class="text-body-sm text-muted" style="margin-bottom: var(--space-3);">${race.circuit} · ${race.country}</p>
-        <div class="countdown" id="countdown-display">
-          <div class="countdown-unit"><span class="countdown-value" id="cd-days">--</span><span class="countdown-label">Days</span></div>
-          <div class="countdown-unit"><span class="countdown-value" id="cd-hours">--</span><span class="countdown-label">Hrs</span></div>
-          <div class="countdown-unit"><span class="countdown-value" id="cd-mins">--</span><span class="countdown-label">Min</span></div>
-          <div class="countdown-unit"><span class="countdown-value" id="cd-secs">--</span><span class="countdown-label">Sec</span></div>
-        </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-3);">
-          ${statusLabel}
-          <span style="font-size: var(--text-xs); color: var(--accent); font-weight: var(--weight-medium);">Go to race →</span>
-        </div>
-      </div>
+      <div class="race-hero-footer"><span class="race-hero-link">${open ? 'Make your prediction' : 'Explore the race'} ${icon('arrow')}</span><span class="eyebrow">${escapeHTML(race.countryFlag)} ${formatRound(race.round)}</span></div>
     </div>
-  `;
+    <div class="race-hero-art"><img src="assets/race-car.svg" alt="" width="1000" height="760"><span class="race-hero-round">ROUND ${String(race.round).padStart(2, '0')} / 2026</span><span class="race-hero-art-label">TRUST YOUR RACING INSTINCT.</span></div>
+  </div>`;
 }
 
-/**
- * Render Leaderboard card (Replaces Your Standing)
- */
+function overviewCard(id, label, body, order) {
+  return `<div class="card overview-card card-interactive animate-card-enter stagger-${order}" id="${id}" role="button" tabindex="0"><div class="card-header"><span class="text-label">${label}</span>${icon('arrow')}</div><div class="card-body">${body}</div></div>`;
+}
+
 function renderLeaderboardCard(rankedUsers, currentUser) {
-  if (!rankedUsers || rankedUsers.length === 0) {
-    return `
-      <div class="card card-cta card-interactive animate-card-enter stagger-2" id="card-leaderboard" role="button" tabindex="0">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-          <span class="text-label">Leaderboard</span>
-          <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-        </div>
-        <div class="card-body">
-          <p class="text-muted">No standings yet</p>
-        </div>
-      </div>
-    `;
-  }
-
-  const topUsers = rankedUsers.slice(0, 3);
-  const userRank = rankedUsers.findIndex(u => u.id === currentUser?.uid) + 1;
-  const rankIcons = ['🥇', '🥈', '🥉'];
-
-  return `
-    <div class="card card-cta card-interactive animate-card-enter stagger-2" id="card-leaderboard" role="button" tabindex="0">
-      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="text-label">Leaderboard</span>
-          ${userRank > 0 ? `<span class="badge badge-standard" style="font-size: 10px;">You: #${userRank}</span>` : ''}
-        </div>
-        <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-      </div>
-      <div class="card-body" style="display: flex; flex-direction: column; gap: var(--space-2);">
-        ${topUsers.map((u, i) => `
-          <div style="display: flex; align-items: center; justify-content: space-between; font-size: var(--text-sm);">
-            <div style="display: flex; align-items: center; gap: var(--space-2); min-width: 0;">
-              <span style="font-size: var(--text-md);">${rankIcons[i] || `#${i+1}`}</span>
-              <span style="font-weight: ${u.id === currentUser?.uid ? 'var(--weight-bold)' : 'var(--weight-medium)'}; ${u.id === currentUser?.uid ? 'color: var(--accent);' : ''}">
-                ${u.displayName || 'Driver'} ${u.id === currentUser?.uid ? '(You)' : ''}
-              </span>
-            </div>
-            <span class="text-data" style="font-weight: var(--weight-semibold);">${u.seasonPoints || 0} pts</span>
-          </div>
-        `).join('')}
-        <div style="margin-top: var(--space-2); font-size: var(--text-xs); color: var(--accent); font-weight: var(--weight-medium); text-align: right;">
-          View full standings →
-        </div>
-      </div>
-    </div>
-  `;
+  const rows = rankedUsers.slice(0, 3).map((user, index) => `<div class="mini-standing"><span class="mini-rank">0${index + 1}</span><span class="mini-name ${user.id === currentUser?.uid ? 'text-accent' : ''}">${escapeHTML(user.displayName || 'Driver')}${user.id === currentUser?.uid ? ' · You' : ''}</span><span class="mini-points">${user.seasonPoints || 0} <small>PTS</small></span></div>`).join('');
+  return overviewCard('card-leaderboard', 'The front runners', rows || '<h3 class="leader-name">A clean slate.</h3><p class="card-detail">The championship starts with the first points.</p>', 2);
 }
 
-/**
- * Render Championship Leader card (Button / Widget)
- */
 function renderLeaderCard(leader, rankedUsers) {
-  if (!leader || leader.seasonPoints === 0) {
-    return `
-      <div class="card card-cta card-interactive animate-card-enter stagger-3" id="card-leader" role="button" tabindex="0">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-          <span class="text-label">Championship Leader</span>
-          <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-        </div>
-        <div class="card-body">
-          <p class="text-muted">No points scored yet</p>
-        </div>
-      </div>
-    `;
-  }
-
-  const margin = rankedUsers.length > 1 
-    ? leader.seasonPoints - rankedUsers[1].seasonPoints 
-    : 0;
-
-  return `
-    <div class="card card-cta card-interactive animate-card-enter stagger-3" id="card-leader" role="button" tabindex="0">
-      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <span class="text-label">Championship Leader</span>
-        <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-      </div>
-      <div class="card-body">
-        <h3 class="text-display-sm" style="margin-bottom: var(--space-2); color: var(--gold);">${leader.displayName}</h3>
-        <div style="display: flex; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-2);">
-          <span class="text-data-lg">${leader.seasonPoints}</span>
-          <span class="text-body-sm text-muted">pts</span>
-          ${margin > 0 ? `<span class="text-body-sm text-muted">+${margin} lead</span>` : ''}
-        </div>
-        <div style="font-size: var(--text-xs); color: var(--accent); font-weight: var(--weight-medium); text-align: right;">
-          View standings →
-        </div>
-      </div>
-    </div>
-  `;
+  const margin = rankedUsers.length > 1 ? leader.seasonPoints - rankedUsers[1].seasonPoints : 0;
+  const body = leader && leader.seasonPoints > 0
+    ? `<h3 class="leader-name">${escapeHTML(leader.displayName || 'Driver')}</h3><p class="leader-points">${leader.seasonPoints} <small>PTS</small></p><p class="card-detail">${margin > 0 ? `+${margin} points clear of second place` : 'Setting the pace this season'}</p>`
+    : '<h3 class="leader-name">The top spot awaits.</h3><p class="card-detail">Could this be your championship?</p>';
+  return overviewCard('card-leader', 'Championship leader', body, 3);
 }
 
-/**
- * Render Recent Result card (Button / Widget)
- */
-function renderRecentResultCard(lastRace) {
-  if (!lastRace) {
-    return `
-      <div class="card card-cta card-interactive animate-card-enter stagger-4" id="card-recent-result" role="button" tabindex="0">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-          <span class="text-label">Recent Result</span>
-          <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-        </div>
-        <div class="card-body">
-          <p class="text-muted">No completed races yet</p>
-        </div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="card card-cta card-interactive animate-card-enter stagger-4" id="card-recent-result" role="button" tabindex="0">
-      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <span class="text-label">Recent Result</span>
-        <span style="font-size: var(--text-lg); color: var(--accent);">→</span>
-      </div>
-      <div class="card-body">
-        <h3 class="text-display-sm" style="margin-bottom: var(--space-1);">${lastRace.name}</h3>
-        <p class="text-body-sm text-muted" style="margin-bottom: var(--space-2);">${formatRound(lastRace.round)} · ${lastRace.circuit}</p>
-        <div style="font-size: var(--text-xs); color: var(--accent); font-weight: var(--weight-medium); text-align: right;">
-          View details →
-        </div>
-      </div>
-    </div>
-  `;
+function renderRecentResultCard(race) {
+  const body = race ? `<h3 class="result-title">${escapeHTML(race.name)}</h3><p class="card-detail">${formatRound(race.round)} · ${escapeHTML(race.circuit)}</p><p class="result-link">View the race recap ${icon('arrow', 'diagonal-arrow')}</p>` : '<h3 class="result-title">The story is<br>still unwritten.</h3><p class="card-detail">Your latest race recap will land here.</p>';
+  return overviewCard('card-recent-result', 'Last time out', body, 4);
 }
 
 /**
@@ -505,10 +374,10 @@ function startCountdown(dateStr) {
     const mins = document.getElementById('cd-mins');
     const secs = document.getElementById('cd-secs');
 
-    if (days) days.textContent = pad(cd.days);
-    if (hours) hours.textContent = pad(cd.hours);
-    if (mins) mins.textContent = pad(cd.minutes);
-    if (secs) secs.textContent = pad(cd.seconds);
+    if (days) days.textContent = cd.valid === false ? '--' : pad(cd.days);
+    if (hours) hours.textContent = cd.valid === false ? '--' : pad(cd.hours);
+    if (mins) mins.textContent = cd.valid === false ? '--' : pad(cd.minutes);
+    if (secs) secs.textContent = cd.valid === false ? '--' : pad(cd.seconds);
 
     if (cd.passed) {
       clearInterval(countdownInterval);

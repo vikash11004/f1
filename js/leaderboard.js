@@ -1,3 +1,4 @@
+import { escapeHTML, pageHeading } from './design.js';
 // ============================================
 // F1 PREDICTION LEAGUE — LEADERBOARD
 // Table · Rank animation · Real-time updates
@@ -28,22 +29,9 @@ async function renderLeaderboard() {
   }
 
   page.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title text-display">Championship Standings</h1>
-      <p class="page-subtitle">2026 F1 Prediction League</p>
-    </div>
-
-    <!-- Leaderboard Header -->
-    <div class="card" style="margin-bottom: var(--space-4);">
-      <div class="card-header" style="position: relative; overflow: hidden;">
-        ${createTelemetrySVG(800)}
-        <div style="position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between;">
-          <span class="text-label">Live Standings</span>
-          <span class="save-indicator saved" style="font-size: var(--text-xs);">● Live</span>
-        </div>
-      </div>
-    </div>
-
+    ${pageHeading('THE CHAMPIONSHIP / STANDINGS', 'Chasing the top step.', 'Every prediction counts. This is where the season takes shape.', '<span class="season-label"><span class="status-dot"></span> LIVE STANDINGS</span>')}
+    <div id="leaderboard-podium"></div>
+    <div class="standings-live"><span>THE CLASSIFICATION</span><span>2026 SEASON POINTS</span></div>
     <div id="leaderboard-content">
       ${rowSkeletonHTML(10)}
     </div>
@@ -72,6 +60,7 @@ function renderLeaderboardTable(users) {
     .sort((a, b) => b.seasonPoints - a.seasonPoints);
 
   if (ranked.length === 0) {
+    document.getElementById('leaderboard-podium').innerHTML = '';
     container.innerHTML = `
       <div class="empty-state">
         ${renderEmptyStateSVG()}
@@ -81,6 +70,8 @@ function renderLeaderboardTable(users) {
     `;
     return;
   }
+
+  document.getElementById('leaderboard-podium').innerHTML = `<div class="podium">${ranked.slice(0, 3).map((user, index) => `<div class="podium-card"><span class="podium-number" aria-hidden="true">0${index + 1}</span><p class="eyebrow">${index === 0 ? 'THE CHAMPIONSHIP LEADER' : index === 1 ? 'SECOND IN COMMAND' : 'IN THE HUNT'}</p><h2>${escapeHTML(user.displayName || 'Driver')}</h2><p class="podium-score"><strong>${user.seasonPoints || 0}</strong> PTS <span aria-hidden="true"> / </span> ${user.wins || 0} WINS</p></div>`).join('')}</div>`;
 
   container.innerHTML = `
     <div class="table-responsive">
@@ -108,10 +99,7 @@ function renderLeaderboardTable(users) {
             }
 
             // Rank display
-            let rankDisplay = rank;
-            if (rank === 1) rankDisplay = '🥇';
-            else if (rank === 2) rankDisplay = '🥈';
-            else if (rank === 3) rankDisplay = '🥉';
+            const rankDisplay = String(rank).padStart(2, '0');
 
             // Last event delta
             const lastEvent = user.lastEventScore || 0;
@@ -119,13 +107,10 @@ function renderLeaderboardTable(users) {
             const deltaClass = lastEvent > 0 ? 'text-success' : lastEvent < 0 ? 'text-error' : 'text-muted';
 
             return `
-              <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${user.id}">
-                <td style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-md);">${rankDisplay}</td>
+              <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${escapeHTML(user.id)}">
+                <td><span class="standing-rank">${rankDisplay}</span></td>
                 <td style="white-space: nowrap;">
-                  <div style="display: flex; flex-direction: column;">
-                    <span style="font-weight: var(--weight-semibold);">${user.displayName || 'Unknown'}</span>
-                    <span class="text-body-sm text-muted">${user.email || ''}</span>
-                  </div>
+                  <div class="standing-player"><span class="standing-avatar" aria-hidden="true">${escapeHTML((user.displayName || 'D').slice(0, 2).toUpperCase())}</span><span class="standing-name">${escapeHTML(user.displayName || 'Driver')}</span></div>
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
                   <span class="text-data" style="font-size: var(--text-lg); font-weight: var(--weight-bold);">${user.seasonPoints || 0}</span>
