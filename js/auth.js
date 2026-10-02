@@ -32,47 +32,59 @@ function initAuth(onReady) {
   authUnsubscribe = onAuthStateChanged(auth, async (user) => {
     if (user) {
       console.log('[Auth] User signed in:', user.email);
-      
-      // Ensure user document exists
-      const userDoc = await getDocument('users', user.uid);
-      if (!userDoc) {
-        await setDocument('users', user.uid, {
-          displayName: user.displayName || user.email.split('@')[0],
-          email: user.email,
-          seasonPoints: 0,
-          lastEventScore: 0,
-          wins: 0
-        });
-      }
-
-      // Seed data on first run
       try {
-        await seedData();
-      } catch (err) {
-        console.error('[Auth] Seed failed:', err);
-      }
+        localStorage.setItem('f1_auth_state', 'signed_in');
+      } catch (e) {}
 
-      // Update UI
+      // Update UI immediately
       updateAuthUI(user);
       
-      // Navigate to dashboard if on auth page
+      // Notify ready immediately so router renders target page without waiting for Firestore queries
+      if (!isAuthReady) {
+        isAuthReady = true;
+        if (onReady) onReady();
+      }
+
+      // Navigate to dashboard if on auth page or root
       if (window.location.hash === '' || window.location.hash === '#auth') {
         navigateTo('dashboard');
       }
 
       // Initialize global chat
       initChat(user);
+
+      // Non-blocking background sync for user doc & seed data
+      (async () => {
+        try {
+          const userDoc = await getDocument('users', user.uid);
+          if (!userDoc) {
+            await setDocument('users', user.uid, {
+              displayName: user.displayName || user.email.split('@')[0],
+              email: user.email,
+              seasonPoints: 0,
+              lastEventScore: 0,
+              wins: 0
+            });
+          }
+          await seedData();
+        } catch (err) {
+          console.error('[Auth] Background sync error:', err);
+        }
+      })();
     } else {
       console.log('[Auth] User signed out');
+      try {
+        localStorage.removeItem('f1_auth_state');
+      } catch (e) {}
       updateAuthUI(null);
       // Hide UI elements
       cleanupChat();
       navigateTo('auth');
-    }
 
-    if (!isAuthReady) {
-      isAuthReady = true;
-      if (onReady) onReady();
+      if (!isAuthReady) {
+        isAuthReady = true;
+        if (onReady) onReady();
+      }
     }
   });
 }
@@ -197,6 +209,9 @@ function renderAuthScreen() {
  * Handle sign in
  */
 async function handleSignIn(email, password) {
+  try {
+    localStorage.setItem('f1_auth_state', 'signed_in');
+  } catch (e) {}
   await signInWithEmailAndPassword(auth, email, password);
   showToast('Welcome back!', 'success');
 }
@@ -205,6 +220,9 @@ async function handleSignIn(email, password) {
  * Handle account creation
  */
 async function handleCreateAccount(email, password, displayName) {
+  try {
+    localStorage.setItem('f1_auth_state', 'signed_in');
+  } catch (e) {}
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   
   // Set display name
@@ -227,6 +245,9 @@ async function handleCreateAccount(email, password, displayName) {
  */
 async function handleSignOut() {
   try {
+    try {
+      localStorage.removeItem('f1_auth_state');
+    } catch (e) {}
     await firebaseSignOut(auth);
     showToast('Signed out', 'info');
   } catch (error) {
