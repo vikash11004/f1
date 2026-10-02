@@ -55,7 +55,7 @@
     <main class="app-main" id="main-content" tabindex="-1">
 
       <!-- Auth Page -->
-      <section class="page active" id="auth-page"></section>
+      <section class="page" id="auth-page"></section>
 
       <!-- Dashboard Page -->
       <section class="page" id="dashboard-page"></section>
@@ -119,7 +119,44 @@
       main.focus();
       main.scrollIntoView({ behavior: 'instant' });
     });
-    renderAuthShell();
+
+    // Determine initial view: prevent flashing login screen when session exists or on app routes
+    const hash = window.location.hash.slice(1);
+    let hasAuthToken = false;
+    let isSignedState = false;
+    try {
+      hasAuthToken = Object.keys(localStorage).some(k => k.startsWith('firebase:authUser:'));
+      isSignedState = localStorage.getItem('f1_auth_state') === 'signed_in';
+    } catch (e) {}
+    const isAppRoute = Boolean(hash && hash !== 'auth');
+    const isLikelyAuthenticated = Boolean(window.__signedIn || isSignedState || hasAuthToken || isAppRoute);
+
+    if (!isLikelyAuthenticated) {
+      document.getElementById('auth-page')?.classList.add('active');
+      renderAuthShell();
+    } else {
+      const targetPageId = (hash.split('/')[0] || 'dashboard') + '-page';
+      const targetPage = document.getElementById(targetPageId) || document.getElementById('dashboard-page');
+      if (targetPage) {
+        targetPage.classList.add('active');
+        if (targetPage.id === 'dashboard-page') {
+          targetPage.innerHTML = `
+            <div class="page-header">
+              <h1 class="page-title text-display">Dashboard</h1>
+              <p class="page-subtitle">Your F1 Prediction League headquarters</p>
+            </div>
+            <div class="dashboard-grid" id="dashboard-grid">
+              <div class="card overview-card"><div class="skeleton skeleton-card" style="height: 180px;"></div></div>
+              <div class="card overview-card"><div class="skeleton skeleton-card" style="height: 180px;"></div></div>
+              <div class="card overview-card"><div class="skeleton skeleton-card" style="height: 180px;"></div></div>
+              <div class="card overview-card"><div class="skeleton skeleton-card" style="height: 180px;"></div></div>
+            </div>
+            <div id="dashboard-cta"></div>
+          `;
+        }
+      }
+    }
+
     const connectionTimer = setTimeout(showConnectionError, 15000);
     import('./js/app.js').then(() => clearTimeout(connectionTimer)).catch(error => {
       clearTimeout(connectionTimer);
