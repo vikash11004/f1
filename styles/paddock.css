@@ -904,7 +904,7 @@ fieldset {
 }
 .season-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   background: var(--bg-surface);
@@ -1573,16 +1573,15 @@ fieldset {
     padding: 12px 22px 22px;
   }
   .season-strip {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
   .season-stat {
-    padding: 19px;
-  }
-  .season-stat:nth-child(2) {
+    padding: 18px 20px;
     border-right: 0;
-  }
-  .season-stat:nth-child(-n + 2) {
     border-bottom: 1px solid var(--glass-border);
+  }
+  .season-stat:last-child {
+    border-bottom: 0;
   }
   .race-row-body {
     padding: 18px 16px;

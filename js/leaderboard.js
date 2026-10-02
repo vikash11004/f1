@@ -71,7 +71,7 @@ function renderLeaderboardTable(users) {
     return;
   }
 
-  document.getElementById('leaderboard-podium').innerHTML = `<div class="podium">${ranked.slice(0, 3).map((user, index) => `<div class="podium-card"><span class="podium-number" aria-hidden="true">0${index + 1}</span><p class="eyebrow">${index === 0 ? 'THE CHAMPIONSHIP LEADER' : index === 1 ? 'SECOND IN COMMAND' : 'IN THE HUNT'}</p><h2>${escapeHTML(user.displayName || 'Driver')}</h2><p class="podium-score"><strong>${user.seasonPoints || 0}</strong> PTS <span aria-hidden="true"> / </span> ${user.wins || 0} WINS</p></div>`).join('')}</div>`;
+  document.getElementById('leaderboard-podium').innerHTML = `<div class="podium">${ranked.slice(0, 3).map((user, index) => `<div class="podium-card"><span class="podium-number" aria-hidden="true">0${index + 1}</span><p class="eyebrow">${index === 0 ? 'THE CHAMPIONSHIP LEADER' : index === 1 ? 'SECOND IN COMMAND' : 'IN THE HUNT'}</p><h2>${escapeHTML(user.displayName || 'Driver')}</h2><p class="podium-score"><strong>${user.seasonPoints || 0}</strong> PTS</p></div>`).join('')}</div>`;
 
   container.innerHTML = `
     <div class="table-responsive">
@@ -82,7 +82,6 @@ function renderLeaderboardTable(users) {
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;">Player</th>
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Season Pts</th>
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Last Event</th>
-            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Wins</th>
           </tr>
         </thead>
         <tbody>
@@ -117,9 +116,6 @@ function renderLeaderboardTable(users) {
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
                   <span class="stat-delta ${deltaClass} text-data">${deltaStr}</span>
-                </td>
-                <td style="text-align: right; white-space: nowrap;">
-                  <span class="text-data">${user.wins || 0}</span>
                 </td>
               </tr>
             `;
