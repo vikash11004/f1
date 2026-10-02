@@ -123,8 +123,10 @@ function updateNavActive(activePage) {
     const page = item.dataset.page;
     if (page === activePage) {
       item.classList.add('active');
+      item.setAttribute('aria-current', 'page');
     } else {
       item.classList.remove('active');
+      item.removeAttribute('aria-current');
     }
   });
 }
@@ -143,6 +145,7 @@ function initNav() {
       const nav = document.getElementById('header-nav');
       if (nav && nav.classList.contains('mobile-open')) {
         nav.classList.remove('mobile-open');
+        document.getElementById('mobile-menu-btn')?.setAttribute('aria-expanded', 'false');
       }
     }
   });
@@ -151,7 +154,10 @@ function initNav() {
   if (mobileBtn) {
     mobileBtn.addEventListener('click', () => {
       const nav = document.getElementById('header-nav');
-      if (nav) nav.classList.toggle('mobile-open');
+      if (nav) {
+        const open = nav.classList.toggle('mobile-open');
+        mobileBtn.setAttribute('aria-expanded', String(open));
+      }
     });
   }
 }
@@ -403,10 +409,13 @@ function debounce(fn, delay) {
  * @returns {Object} { days, hours, minutes, seconds, total, passed }
  */
 function getCountdown(dateStr) {
-  const target = new Date(dateStr + 'T00:00:00');
+  const target = new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr + 'T00:00:00' : dateStr);
   const now = new Date();
   const diff = target - now;
 
+  if (!Number.isFinite(diff)) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0, passed: true, valid: false };
+  }
   if (diff <= 0) {
     return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0, passed: true };
   }

@@ -244,10 +244,11 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
 
   page.innerHTML = `
     <div class="page-header" style="margin-bottom: var(--space-4);">
+      <p class="eyebrow">${isResultsMode ? 'RACE CONTROL / OFFICIAL CLASSIFICATION' : 'YOUR STRATEGY / PREDICTION BUILDER'}</p>
       <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
         <button class="btn btn-ghost btn-sm" id="btn-back-predict" aria-label="Back">← Back</button>
         <span class="badge-round text-display">${formatRound(currentRace.round)}</span>
-        <h1 class="page-title text-display" style="margin-bottom: 0; font-size: var(--text-xl);">${currentRace.name}</h1>
+        <h1 class="page-title text-display prediction-title">${currentRace.name}</h1>
         ${sprintBadge}
         ${isCurrentSessionVoided 
           ? '<span class="badge" style="background: #e63946; color: white; border: none;">SESSION CANCELLED / VOIDED</span>'
