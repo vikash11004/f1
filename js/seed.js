@@ -226,9 +226,14 @@ export {
   seedData
 };
 
-// --- TEMP ADMIN RESET ---
+// --- ADMIN RESET UTILITY (PROTECTED) ---
 export async function adminReset() {
-  const { getAllDocuments, deleteDocument, updateDocument, ADMIN_UID } = await import('./firebase.js');
+  const { getAllDocuments, deleteDocument, updateDocument, ADMIN_UID, isAdmin } = await import('./firebase.js');
+  if (!isAdmin()) {
+    console.error('⛔ Access Denied: Database reset can only be executed by the administrator.');
+    return;
+  }
+
   console.log('Starting full database reset...');
   
   const results = await getAllDocuments('results');
@@ -261,4 +266,4 @@ export async function adminReset() {
 
   console.log('Reset complete! Please refresh the page.');
 }
-window.adminReset = adminReset;
+

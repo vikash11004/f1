@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.uid == "HI5xCVYecISuzRVSdJAb6aHcuHe2";
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Teams & Drivers Collections ---
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /drivers/{driverId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Anyone logged in can read leaderboard/user profiles
+      allow read: if isAuthenticated();
+
+      // Only the authenticated user can create their own profile with zero points
+      allow create: if isOwner(userId)
+                    && request.resource.data.seasonPoints == 0
+                    && request.resource.data.lastEventScore == 0
+                    && request.resource.data.wins == 0;
+
+      // Regular users can only update their profile (e.g., displayName), not points
+      // Admin can update points and scores during results calculation
+      allow update: if isAdmin() || (
+        isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['seasonPoints', 'lastEventScore', 'wins'])
+      );
+
+      // Only admin can delete user profiles
+      allow delete: if isAdmin();
+    }
+
+    // --- Races Collection ---
+    match /races/{raceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Predictions Collection ---
+    match /predictions/{predId} {
+      // Authenticated users can read predictions
+      allow read: if isAuthenticated();
+
+      // Create new prediction before lock
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.order is list
+                    && request.resource.data.order.size() <= 22;
+
+      // Update prediction only if not locked
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid
+                    && resource.data.lockedAt == null;
+
+      // Delete only if not locked or by admin
+      allow delete: if isAdmin() || (
+        isAuthenticated() 
+        && resource.data.userId == request.auth.uid 
+        && resource.data.lockedAt == null
+      );
+    }
+
+    // --- Results Collection ---
+    match /results/{resultId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Scores Collection ---
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Chat Messages Collection ---
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.senderId == request.auth.uid
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() <= 200
+                    && request.resource.data.senderName is string;
+
+      allow update, delete: if isAdmin();
+    }
+  }
+}

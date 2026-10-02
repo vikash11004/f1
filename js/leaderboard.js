@@ -6,7 +6,8 @@ import { escapeHTML, pageHeading } from './design.js';
 
 import {
   listenToCollection,
-  getAllDocuments
+  getAllDocuments,
+  ADMIN_UID
 } from './firebase.js';
 import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
 import { rowSkeletonHTML } from './ui.js';
@@ -56,7 +57,7 @@ function renderLeaderboardTable(users) {
 
   // Filter out users with no points data and exclude admin
   const ranked = users
-    .filter(u => u.seasonPoints !== undefined && u.email !== 'vikashthyadi@gmail.com' && u.email !== 'vikash11004@gmail.com')
+    .filter(u => u.seasonPoints !== undefined && u.id !== ADMIN_UID)
     .sort((a, b) => b.seasonPoints - a.seasonPoints);
 
   if (ranked.length === 0) {
