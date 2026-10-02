@@ -117,7 +117,6 @@ async function renderDashboard() {
         <div class="season-stat"><strong>${userRank ? String(userRank).padStart(2, '0') : '—'}</strong><span>Championship position</span></div>
         <div class="season-stat"><strong>${currentUserDoc?.seasonPoints || 0}</strong><span>Season points</span></div>
         <div class="season-stat"><strong>${currentUserDoc?.lastEventScore || 0}</strong><span>Last event points</span></div>
-        <div class="season-stat"><strong>${currentUserDoc?.wins || 0}</strong><span>Race wins</span></div>
       </div>`;
 
 
