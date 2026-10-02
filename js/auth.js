@@ -5,6 +5,7 @@
 
 import {
   auth,
+  isAdmin,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -60,13 +61,14 @@ function initAuth(onReady) {
           if (!userDoc) {
             await setDocument('users', user.uid, {
               displayName: user.displayName || user.email.split('@')[0],
-              email: user.email,
               seasonPoints: 0,
               lastEventScore: 0,
               wins: 0
             });
           }
-          await seedData();
+          if (isAdmin()) {
+            await seedData();
+          }
         } catch (err) {
           console.error('[Auth] Background sync error:', err);
         }
@@ -228,10 +230,9 @@ async function handleCreateAccount(email, password, displayName) {
   // Set display name
   await updateProfile(credential.user, { displayName });
   
-  // Create user document
+  // Create user document (without leaking raw email)
   await setDocument('users', credential.user.uid, {
     displayName,
-    email,
     seasonPoints: 0,
     lastEventScore: 0,
     wins: 0

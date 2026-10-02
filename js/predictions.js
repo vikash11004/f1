@@ -38,6 +38,7 @@ import {
   debounce,
   formatRound
 } from './ui.js';
+import { escapeHTML } from './design.js';
 
 // --- State ---
 let currentRace = null;
@@ -535,15 +536,17 @@ async function fetchAndShowOthersPredictions() {
 
     lockedPredictions.forEach(pred => {
       const user = userMap[pred.userId];
-      const userName = user?.displayName || 'Unknown Player';
+      const rawName = user?.displayName || 'Unknown Player';
+      const safeName = escapeHTML(rawName);
+      const safeInitial = escapeHTML(rawName.charAt(0).toUpperCase());
 
       html += `
         <div class="prediction-card" style="background: var(--bg-base); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border);">
           <h3 class="text-md" style="margin-bottom: var(--space-3); color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
             <div class="avatar" style="width: 24px; height: 24px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-              ${userName.charAt(0).toUpperCase()}
+              ${safeInitial}
             </div>
-            ${userName}
+            ${safeName}
           </h3>
           <table class="score-breakdown">
             <thead>

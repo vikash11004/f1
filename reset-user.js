@@ -4,14 +4,15 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
 
-const keyPath = path.join(__dirname, 'serviceAccountKey.json');
+const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || path.join(__dirname, 'serviceAccountKey.json');
 
 if (!fs.existsSync(keyPath)) {
-  console.error('\n❌ ERROR: serviceAccountKey.json not found in directory!');
-  console.error('Please download your private key from Firebase Console:');
-  console.error('  1. Go to Firebase Console > Project settings (gear icon) > Service accounts');
-  console.error('  2. Click "Generate new private key"');
-  console.error('  3. Save the JSON file as serviceAccountKey.json in this project folder.\n');
+  console.error('\n❌ ERROR: Service account key not found!');
+  console.error(`Looked at path: ${keyPath}`);
+  console.error('To run safely without keeping keys in your git repository:');
+  console.error('  Set FIREBASE_SERVICE_ACCOUNT_KEY environment variable to the path of your key, e.g.:');
+  console.error('    $env:FIREBASE_SERVICE_ACCOUNT_KEY="C:\\path\\to\\serviceAccountKey.json"; node reset-user.js ...');
+  console.error('  Or place serviceAccountKey.json in this directory (ensure it is NOT committed to git).\n');
   process.exit(1);
 }
 

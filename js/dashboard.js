@@ -7,6 +7,7 @@ import { escapeHTML, icon, pageHeading } from './design.js';
 import {
   auth,
   isAdmin,
+  ADMIN_UID,
   queryCollection,
   getAllDocuments,
   getDocument,
@@ -106,7 +107,7 @@ async function renderDashboard() {
 
     // Sort users by season points for ranking (excluding admin accounts)
     const rankedUsers = [...users]
-      .filter(u => u.seasonPoints !== undefined && u.email !== 'vikashthyadi@gmail.com' && u.email !== 'vikash11004@gmail.com')
+      .filter(u => u.seasonPoints !== undefined && u.id !== ADMIN_UID)
       .sort((a, b) => b.seasonPoints - a.seasonPoints);
 
     const leader = rankedUsers[0];
