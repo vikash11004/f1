@@ -15,14 +15,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- Teams & Drivers Collections ---
+    // --- Teams & Drivers Collections (Publicly readable) ---
     match /teams/{teamId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     match /drivers/{driverId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -48,15 +48,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- Races Collection ---
+    // --- Races Collection (Publicly readable calendar/status) ---
     match /races/{raceId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // --- Predictions Collection ---
     match /predictions/{predId} {
-      // Authenticated users can read predictions
+      // Authenticated users can read predictions (needed for builder & comparing locked predictions)
       allow read: if isAuthenticated();
 
       // Create new prediction before lock
@@ -69,13 +69,13 @@ service cloud.firestore {
       allow update: if isAuthenticated()
                     && resource.data.userId == request.auth.uid
                     && request.resource.data.userId == request.auth.uid
-                    && resource.data.lockedAt == null;
+                    && (!('lockedAt' in resource.data) || resource.data.lockedAt == null);
 
       // Delete only if not locked or by admin
       allow delete: if isAdmin() || (
         isAuthenticated() 
         && resource.data.userId == request.auth.uid 
-        && resource.data.lockedAt == null
+        && (!('lockedAt' in resource.data) || resource.data.lockedAt == null)
       );
     }
 

@@ -154,7 +154,13 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       }
     } else {
       const predId = `${auth.currentUser.uid}_${raceId}_${currentSession}`;
-      const existingPred = await getDocument('predictions', predId);
+      let existingPred = null;
+      try {
+        existingPred = await getDocument('predictions', predId);
+      } catch (err) {
+        // If document doesn't exist yet or rules reject checking a non-existent doc, treat as new prediction
+        console.warn(`[Predictions] No existing prediction found or error reading ${predId}:`, err);
+      }
       if (existingPred?.order) {
         existingOrder = existingPred.order;
         if (existingPred.lockedAt) {
