@@ -25,6 +25,7 @@ import {
   rowSkeletonHTML,
   formatRound
 } from './ui.js';
+import { openAdminExportModal, exportSessionToExcel } from './export.js';
 
 // Global cache for races to support event delegation across the app
 let _cachedRaces = [];
@@ -69,14 +70,39 @@ async function renderRaces() {
 
   page.innerHTML = `
     ${pageHeading('THE SEASON / RACE CALENDAR', 'Around the world. All in.', 'One season. Every circuit. A new chance to get it right.', '<span class="season-label">2026 WORLD CHAMPIONSHIP</span>')}
-    <div class="calendar-toolbar"><div class="calendar-filters" role="group" aria-label="Filter races">
-      ${[['all', 'All races'], ['upcoming', 'Upcoming'], ['active', 'Open now'], ['completed', 'Completed']].map(([value, label]) => `<button class="filter-btn ${calendarFilter === value ? 'active' : ''}" data-filter="${value}" aria-pressed="${calendarFilter === value}">${label}</button>`).join('')}
-    </div><span class="calendar-count" id="calendar-count"></span></div>
+    <div class="calendar-toolbar">
+      <div class="calendar-filters" role="group" aria-label="Filter races">
+        ${[['all', 'All races'], ['upcoming', 'Upcoming'], ['active', 'Open now'], ['completed', 'Completed']].map(([value, label]) => `<button class="filter-btn ${calendarFilter === value ? 'active' : ''}" data-filter="${value}" aria-pressed="${calendarFilter === value}">${label}</button>`).join('')}
+      </div>
+      <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+        <span class="calendar-count" id="calendar-count"></span>
+        <button class="btn btn-sm btn-secondary" id="btn-admin-export-calendar" style="padding: 4px 12px; font-size: var(--text-xs); display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="12" y2="18"></line>
+            <line x1="15" y1="15" x2="12" y2="18"></line>
+          </svg>
+          Export Session Excel
+        </button>
+      </div>
+    </div>
     <div class="race-list" id="race-list">
       ${rowSkeletonHTML(22)}
     </div>
     ${isAdmin() ? `
-      <div class="fab">
+      <div class="fab" style="display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-end;">
+        <button class="btn btn-secondary btn-sm" id="btn-fab-export-session" style="box-shadow: var(--shadow-md); display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="12" y2="18"></line>
+            <line x1="15" y1="15" x2="12" y2="18"></line>
+          </svg>
+          Export Session
+        </button>
         <button class="btn btn-primary btn-lg" id="btn-new-race" aria-label="Add new race">
           + New Race
         </button>
@@ -103,6 +129,14 @@ async function renderRaces() {
     // FAB click handler
     document.getElementById('btn-new-race')?.addEventListener('click', () => {
       openNewRacePanel();
+    });
+
+    // Admin export handlers
+    document.getElementById('btn-admin-export-calendar')?.addEventListener('click', () => {
+      openAdminExportModal();
+    });
+    document.getElementById('btn-fab-export-session')?.addEventListener('click', () => {
+      openAdminExportModal();
     });
 
   } catch (error) {
@@ -160,7 +194,34 @@ function renderRaceList(races) {
       } else if (race.status === 'locked') {
         adminActionBtn = `<button class="btn btn-sm btn-secondary btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">Enter Results</button>`;
       } else if (race.status === 'completed') {
-        adminActionBtn = `<button class="btn btn-sm btn-ghost btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">✏️ Edit Results</button>`;
+        adminActionBtn = `
+          <button class="btn btn-sm btn-secondary btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs); display: inline-flex; align-items: center; gap: 5px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            Results
+          </button>
+          <button class="btn btn-sm btn-ghost btn-quick-edit-results" data-race-id="${race.id}" title="Edit Results" style="padding: 4px 8px; font-size: var(--text-xs); display: inline-flex; align-items: center;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+          </button>
+        `;
+      }
+    } else {
+      if (race.status === 'completed') {
+        adminActionBtn = `
+          <button class="btn btn-sm btn-secondary btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs); display: inline-flex; align-items: center; gap: 5px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            View Results
+          </button>
+        `;
+      } else if (race.status === 'active') {
+        adminActionBtn = `<button class="btn btn-sm btn-primary btn-quick-predict" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">Predict →</button>`;
       }
     }
 
@@ -215,7 +276,7 @@ function renderRaceList(races) {
     });
   });
 
-  // Quick results listener (Admin)
+  // Quick results listener (Admin & Users)
   container.querySelectorAll('.btn-quick-results').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -223,7 +284,32 @@ function renderRaceList(races) {
       const race = races.find(r => r.id === raceId);
       if (!race) return;
       const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
-      navigateTo('results', raceId, sessions[0]);
+      const mainSession = sessions[sessions.length - 1];
+      navigateTo('results', raceId, mainSession);
+    });
+  });
+
+  // Quick edit results listener (Admin)
+  container.querySelectorAll('.btn-quick-edit-results').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const raceId = btn.dataset.raceId;
+      const race = races.find(r => r.id === raceId);
+      if (!race) return;
+      const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+      navigateTo('results', raceId, sessions[sessions.length - 1]);
+    });
+  });
+
+  // Quick predict listener (Users)
+  container.querySelectorAll('.btn-quick-predict').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const raceId = btn.dataset.raceId;
+      const race = races.find(r => r.id === raceId);
+      if (!race) return;
+      const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+      navigateTo('predict', raceId, sessions[0]);
     });
   });
 }
@@ -314,6 +400,23 @@ function openRacePanel(race) {
               <div style="display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); gap: 6px;">
                 <span class="text-body-sm" style="font-weight: 600;">${SESSION_LABELS[s]}</span>
                 <div style="display: flex; gap: 4px; align-items: center;">
+                  <button class="btn btn-sm btn-ghost btn-session-view-results" data-session="${s}" title="View ${SESSION_LABELS[s]} Results" style="font-size: var(--text-xs); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                      <line x1="4" y1="22" x2="4" y2="15"></line>
+                    </svg>
+                    Results
+                  </button>
+                  <button class="btn btn-sm btn-ghost btn-session-export-excel" data-session="${s}" title="Export ${SESSION_LABELS[s]} to Excel" style="font-size: var(--text-xs); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="12" y1="18" x2="12" y2="12"></line>
+                      <line x1="9" y1="15" x2="12" y2="18"></line>
+                      <line x1="15" y1="15" x2="12" y2="18"></line>
+                    </svg>
+                    Excel
+                  </button>
                   ${admin ? `
                     <button class="btn btn-sm ${isSessLocked ? 'btn-danger' : 'btn-ghost'} btn-toggle-session-lock" data-session="${s}" data-locked="${isSessLocked}" style="font-size: var(--text-xs); padding: 4px 8px;">
                       ${isSessLocked ? '🔒 Locked' : '🔓 Unlocked'}
@@ -331,10 +434,34 @@ function openRacePanel(race) {
         </div>
       </div>
 
-      ${admin ? `
-        <div style="margin-bottom: var(--space-6);">
-          <span class="text-label">Actions</span>
-          <div style="margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
+      <div style="margin-bottom: var(--space-6);">
+        <span class="text-label">Actions</span>
+        <div style="margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
+          <button class="btn btn-secondary" id="btn-panel-export-excel" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="12" y2="18"></line>
+              <line x1="15" y1="15" x2="12" y2="18"></line>
+            </svg>
+            Export Session to Excel...
+          </button>
+          ${(race.status === 'completed' || race.status === 'locked') ? `
+            <button class="btn btn-primary" id="btn-panel-view-results" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                <line x1="4" y1="22" x2="4" y2="15"></line>
+              </svg>
+              View Results & Scores →
+            </button>
+          ` : ''}
+          ${!admin && race.status === 'active' ? `
+            <button class="btn btn-primary" id="btn-make-prediction">
+              Make Predictions →
+            </button>
+          ` : ''}
+          ${admin ? `
             ${nextStatus[race.status] ? `
               <button class="btn btn-primary" id="btn-status-transition">
                 ${nextLabel[race.status]}
@@ -350,17 +477,9 @@ function openRacePanel(race) {
                 ✏️ Edit Results
               </button>
             ` : ''}
-          </div>
+          ` : ''}
         </div>
-      ` : ''}
-
-      ${!admin && (race.status === 'active' || race.status === 'locked') ? `
-        <div style="margin-bottom: var(--space-6);">
-          <button class="btn btn-secondary" id="btn-make-prediction" style="width: 100%;">
-            ${race.status === 'active' ? 'Make Predictions →' : 'View Predictions'}
-          </button>
-        </div>
-      ` : ''}
+      </div>
     </div>
 
     ${admin && race.status === 'upcoming' ? `
@@ -488,6 +607,37 @@ function openRacePanel(race) {
     const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
     closeSidePanel();
     navigateTo('predict', race.id, sessions[0]);
+  });
+
+  // View race results
+  document.getElementById('btn-panel-view-results')?.addEventListener('click', () => {
+    const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+    closeSidePanel();
+    navigateTo('results', race.id, sessions[sessions.length - 1]);
+  });
+
+  // Individual session View Results buttons
+  document.querySelectorAll('.btn-session-view-results').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = btn.dataset.session;
+      closeSidePanel();
+      navigateTo('results', race.id, s);
+    });
+  });
+
+  // Export button in Actions
+  document.getElementById('btn-panel-export-excel')?.addEventListener('click', () => {
+    openAdminExportModal(race.id);
+  });
+
+  // Individual Session Excel export buttons
+  document.querySelectorAll('.btn-session-export-excel').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = btn.dataset.session;
+      exportSessionToExcel(race, s);
+    });
   });
 
   // Delete race

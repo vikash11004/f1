@@ -244,15 +244,32 @@ async function renderDashboard() {
       const isLocked = activeRace.status === 'locked';
       ctaContainer.innerHTML = `
         <div class="card card-cta animate-card-enter" id="cta-manage" style="margin-top: var(--space-4);">
-          <div class="card-body" style="display: flex; align-items: center; justify-content: space-between;">
+          <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
             <div>
               <h3 class="text-display-sm" style="margin-bottom: var(--space-1);">Manage Race</h3>
               <p class="text-body-sm text-muted">${activeRace.name} — ${isLocked ? 'Enter results' : 'Predictions open'}</p>
             </div>
-            <span style="font-size: var(--text-2xl); color: var(--accent);">→</span>
+            <div style="display: flex; align-items: center; gap: var(--space-3);">
+              <button class="btn btn-secondary btn-sm" id="btn-dashboard-export" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12"></line>
+                  <line x1="9" y1="15" x2="12" y2="18"></line>
+                  <line x1="15" y1="15" x2="12" y2="18"></line>
+                </svg>
+                Export Session Excel
+              </button>
+              <span style="font-size: var(--text-2xl); color: var(--accent);">→</span>
+            </div>
           </div>
         </div>
       `;
+      document.getElementById('btn-dashboard-export')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const { openAdminExportModal } = await import('./export.js');
+        openAdminExportModal(activeRace.id);
+      });
       document.getElementById('cta-manage')?.addEventListener('click', () => {
         window.location.hash = '#races';
       });

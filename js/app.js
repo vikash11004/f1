@@ -18,9 +18,43 @@ registerPage('predict', (raceId, session) => {
     renderPredictionBuilder(raceId, 'quali', false);
   }
 });
-registerPage('results', (raceId, session) => {
+registerPage('results', async (raceId, session) => {
   if (raceId && session) {
     renderResults(raceId, session);
+  } else {
+    try {
+      const { getAllDocuments } = await import('./firebase.js');
+      const [races, allResults] = await Promise.all([
+        getAllDocuments('races'),
+        getAllDocuments('results')
+      ]);
+      races.sort((a, b) => a.round - b.round);
+
+      let targetRace = null;
+      let targetSession = session || 'race';
+
+      // Find most recent race with confirmed results
+      for (let i = races.length - 1; i >= 0; i--) {
+        const r = races[i];
+        const res = (allResults || []).find(resDoc => resDoc.raceId === r.id && resDoc.calculatedAt);
+        if (res) {
+          targetRace = r;
+          targetSession = res.session || 'race';
+          break;
+        }
+      }
+
+      if (!targetRace) {
+        const completed = races.filter(r => r.status === 'completed');
+        targetRace = completed[completed.length - 1] || races.find(r => r.status === 'active') || races[0];
+      }
+
+      if (targetRace) {
+        renderResults(targetRace.id, targetSession);
+      }
+    } catch (e) {
+      console.warn('[App] Could not resolve default race for results:', e);
+    }
   }
 });
 registerPage('leaderboard', renderLeaderboard);
