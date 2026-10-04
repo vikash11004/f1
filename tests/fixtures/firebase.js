@@ -112,7 +112,7 @@ export const app = {},
       : null,
   };
 let authListener;
-export const isAdmin = () => false;
+export const isAdmin = () => Boolean(window.__isAdmin);
 export const onAuthStateChanged = (a, fn) => {
   authListener = fn;
   queueMicrotask(() => fn(auth.currentUser));

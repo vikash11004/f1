@@ -61,11 +61,6 @@ function handleRouteChange() {
     return;
   }
 
-  // Admin guard for results page
-  if (page === 'results' && !isAdmin()) {
-    navigateTo('leaderboard');
-    return;
-  }
 
   showPage(page, params);
 }

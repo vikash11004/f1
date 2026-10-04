@@ -875,6 +875,48 @@
   color: var(--accent);
 }
 
+/* --- Your Result Card (Highlighted) --- */
+.result-player-card.is-current-user {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 20px rgba(232, 0, 45, 0.22);
+  background: var(--bg-surface);
+}
+
+.result-hero-card {
+  background: linear-gradient(135deg, rgba(232, 0, 45, 0.08) 0%, rgba(20, 21, 22, 0.95) 100%);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 0, 45, 0.15);
+}
+
+.official-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+.official-table th {
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.official-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--glass-border);
+  vertical-align: middle;
+}
+
+.official-table tr:hover td {
+  background: var(--glass-bg-hover);
+}
+
 /* ============================================
    GLOBAL CHAT
    ============================================ */
@@ -1166,4 +1208,62 @@
   .chat-fab-avatar {
     font-size: 1.25rem;
   }
+}
+
+/* --- Results & Breakdown Components --- */
+.result-hero-card {
+  background: linear-gradient(135deg, rgba(232, 0, 45, 0.08) 0%, rgba(20, 21, 22, 0.95) 100%);
+  border: 1px solid rgba(232, 0, 45, 0.35);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.result-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+}
+
+.result-player-card.is-current-user {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px rgba(232, 0, 45, 0.25);
+  background: linear-gradient(180deg, rgba(232, 0, 45, 0.06) 0%, var(--bg-surface) 100%);
+}
+
+.official-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+}
+
+.official-table th {
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.official-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: var(--text-sm);
+  vertical-align: middle;
+}
+
+.official-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
 }

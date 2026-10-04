@@ -287,7 +287,17 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
           </button>
         ` : ''}
         ${isAdmin() ? `
-          <div style="margin-left: auto; display: flex; gap: var(--space-2); flex-wrap: wrap;">
+          <div style="margin-left: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-sm btn-secondary" id="btn-admin-export-session-xlsx" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="12" y2="18"></line>
+                <line x1="15" y1="15" x2="12" y2="18"></line>
+              </svg>
+              Export Excel
+            </button>
             <button class="btn btn-sm ${isCurrentSessionLocked ? 'btn-danger' : 'btn-ghost'}" id="btn-toggle-session-lock-header">
               ${isCurrentSessionLocked ? '🔒 Session Locked' : '🔓 Session Open'}
             </button>
@@ -407,6 +417,7 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
 
   // Export XLSX
   getPage().querySelector('#btn-export-xlsx')?.addEventListener('click', handleExportXLSX);
+  getPage().querySelector('#btn-admin-export-session-xlsx')?.addEventListener('click', handleExportXLSX);
 
   // View Others' Predictions
   getPage().querySelector('#btn-view-others')?.addEventListener('click', fetchAndShowOthersPredictions);
@@ -595,155 +606,8 @@ async function fetchAndShowOthersPredictions() {
  * Handle Excel Export (XLSX)
  */
 async function handleExportXLSX() {
-  if (!officialResultOrder) {
-    showToast("Official results are not available yet.", "warning");
-    return;
-  }
-  if (!window.XLSX) {
-    showToast("Excel export library is loading, please try again in a moment.", "warning");
-    return;
-  }
-
-  showToast("Generating Excel file, please wait...", "info");
-
-  try {
-    const allPredictions = await queryCollection('predictions', [
-      ['raceId', '==', currentRace.id],
-      ['session', '==', currentSession]
-    ]);
-    const lockedPredictions = allPredictions.filter(p => p.lockedAt);
-
-    if (lockedPredictions.length === 0) {
-      showToast("No locked predictions found to export.", "warning");
-      return;
-    }
-
-    const users = await getAllDocuments('users');
-    const userMap = {};
-    users.forEach(u => { userMap[u.id] = u; });
-
-    const allScores = await queryCollection('scores', [
-      ['raceId', '==', currentRace.id],
-      ['session', '==', currentSession]
-    ]);
-    const scoreMap = {};
-    allScores.forEach(s => {
-      scoreMap[s.userId] = s;
-    });
-
-    lockedPredictions.sort((a, b) => {
-      const scoreA = scoreMap[a.userId]?.totalPoints || 0;
-      const scoreB = scoreMap[b.userId]?.totalPoints || 0;
-      return scoreB - scoreA;
-    });
-
-    const headers = ["Position", "Official Result"];
-    const colWidths = [{ wch: 10 }, { wch: 28 }];
-    
-    lockedPredictions.forEach(p => {
-      const userName = userMap[p.userId]?.displayName || 'Unknown';
-      headers.push(`${userName} Pred`, `${userName} Diff`, `${userName} Pts`);
-      colWidths.push({ wch: 28 }, { wch: 12 }, { wch: 15 });
-    });
-
-    const rows = [
-      ["Formula 1 Prediction League — Session Results Export"],
-      [`Race: ${currentRace.name}`],
-      [`Session: ${SESSION_FULL_LABELS[currentSession]}`],
-      [],
-      headers
-    ];
-
-    let maxPos = officialResultOrder.length;
-    lockedPredictions.forEach(p => {
-      if (p.order && p.order.length > maxPos) maxPos = p.order.length;
-    });
-    maxPos = Math.max(maxPos, 22);
-
-    for (let i = 0; i < maxPos; i++) {
-      const pos = i + 1;
-      const actualDriverId = officialResultOrder[i];
-      const actualDriver = getDriver(actualDriverId);
-      const actualName = actualDriver ? `${actualDriver.code} - ${actualDriver.name}` : "-";
-
-      const row = [pos, actualName];
-
-      lockedPredictions.forEach(p => {
-        const predDriverId = p.order && p.order[i] ? p.order[i] : null;
-        const predDriver = getDriver(predDriverId);
-        const predName = predDriver ? `${predDriver.code} - ${predDriver.name}` : "-";
-
-        const userScore = scoreMap[p.userId];
-        const driverScoreObj = userScore?.driverScores?.find(ds => ds.driverId === predDriverId);
-        
-        const diff = driverScoreObj ? driverScoreObj.diff : "-";
-        const points = driverScoreObj ? driverScoreObj.points : 0;
-
-        row.push(predName, diff, points);
-      });
-
-      rows.push(row);
-    }
-
-    rows.push([]);
-
-    const accuracyRow = ["", "Accuracy Points"];
-    const bonusRow = ["", "Bonus Points"];
-    const totalRow = ["", "TOTAL SCORE"];
-    
-    // Find all unique bonus labels across users
-    const uniqueBonusLabels = [];
-    lockedPredictions.forEach(p => {
-      const userScore = scoreMap[p.userId];
-      if (userScore && userScore.bonuses) {
-        userScore.bonuses.forEach(b => {
-          if (!uniqueBonusLabels.includes(b.label)) {
-            uniqueBonusLabels.push(b.label);
-          }
-        });
-      }
-    });
-
-    // Create rows for each bonus label
-    const bonusBreakdownRows = uniqueBonusLabels.map(label => {
-      const row = ["", `  ↳ ${label}`];
-      lockedPredictions.forEach(p => {
-        const userScore = scoreMap[p.userId];
-        let points = 0;
-        if (userScore && userScore.bonuses) {
-          const b = userScore.bonuses.find(x => x.label === label);
-          if (b && b.earned) {
-            points = b.points;
-          }
-        }
-        row.push("", "", points); // Empty Pred, Empty Diff, Bonus Pts
-      });
-      return row;
-    });
-    
-    lockedPredictions.forEach(p => {
-      const userScore = scoreMap[p.userId];
-      accuracyRow.push("", "", userScore ? userScore.accuracyPoints : 0);
-      bonusRow.push("", "", userScore ? userScore.bonusPoints : 0);
-      totalRow.push("", "", userScore ? userScore.totalPoints : 0);
-    });
-
-    rows.push(accuracyRow, bonusRow, ...bonusBreakdownRows, totalRow);
-
-    const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
-    const workbook = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
-    
-    worksheet['!cols'] = colWidths;
-
-    const filename = `${currentRace.name.replace(/\\s+/g, '_')}_${SESSION_LABELS[currentSession]}_Results.xlsx`;
-    window.XLSX.writeFile(workbook, filename);
-    showToast("Excel exported successfully!", "success");
-
-  } catch (err) {
-    console.error("Error exporting XLSX:", err);
-    showToast("An error occurred while exporting to Excel.", "error");
-  }
+  const { exportSessionToExcel } = await import('./export.js');
+  await exportSessionToExcel(currentRace, currentSession);
 }
 
 /**

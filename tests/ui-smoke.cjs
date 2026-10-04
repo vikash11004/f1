@@ -43,7 +43,9 @@ async function run() {
     browser = await chromium.launch({
       executablePath:
         process.env.CHROMIUM_PATH ||
-        (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),
+        (fs.existsSync('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe')
+          ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+          : fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
       env: { ...process.env, XDG_CACHE_HOME: '/tmp/f1-browser-cache' },
