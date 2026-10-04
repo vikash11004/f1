@@ -198,8 +198,23 @@ async function processResults(raceId, session, officialOrder) {
 async function showResultsBreakdown(page, playerScores, officialOrder, raceId, session) {
   if (!page) return;
 
-  // Load race data for session tabs
+  // Load race data for session tabs and weekend selector
   const raceDoc = await getDocument('races', raceId);
+  const allRaces = await getAllDocuments('races');
+  allRaces.sort((a, b) => a.round - b.round);
+  const currentRaceIndex = allRaces.findIndex(r => r.id === raceId);
+  const prevRace = currentRaceIndex > 0 ? allRaces[currentRaceIndex - 1] : null;
+  const nextRace = currentRaceIndex >= 0 && currentRaceIndex < allRaces.length - 1 ? allRaces[currentRaceIndex + 1] : null;
+
+  // Query all results to show status tags in the dropdown
+  const allResults = await getAllDocuments('results');
+  const racesWithResultsStatus = {};
+  (allResults || []).forEach(r => {
+    if (r.calculatedAt && r.order?.length) {
+      racesWithResultsStatus[r.raceId] = true;
+    }
+  });
+
   const sessions = raceDoc ? (SESSION_KEYS[raceDoc.weekendType] || SESSION_KEYS.standard) : [session];
   const cancelledSessions = raceDoc?.cancelledSessions || {};
 
@@ -247,31 +262,62 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         <span class="badge" style="background: ${hasResults ? 'var(--status-completed)' : 'var(--accent)'}; color: white; border: none;">
           ${hasResults ? 'RESULTS CONFIRMED' : 'AWAITING CLASSIFICATION'}
         </span>
-
-        <div style="margin-left: auto; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary btn-sm" id="btn-export-results-breakdown" style="display: inline-flex; align-items: center; gap: 6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="12" y1="18" x2="12" y2="12"></line>
-              <line x1="9" y1="15" x2="12" y2="18"></line>
-              <line x1="15" y1="15" x2="12" y2="18"></line>
-            </svg>
-            Export Excel
-          </button>
-          ${isAdmin() ? `
-            <button class="btn btn-secondary btn-sm" id="btn-edit-results-breakdown" style="display: inline-flex; align-items: center; gap: 6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-              </svg>
-              Edit Results
-            </button>
-          ` : ''}
-        </div>
       </div>
       <p class="page-subtitle" style="margin-top: var(--space-2);">
         ${hasResults ? `${playerScores.length} players scored · Official race classification confirmed` : `${playerScores.length} player prediction(s) submitted`}
       </p>
+    </div>
+
+    <!-- Grand Prix Weekend Selector Bar -->
+    <div class="results-weekend-bar" style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); background: var(--bg-surface); padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--glass-border);">
+      <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+        <label for="results-race-select" style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Select Weekend:
+        </label>
+        <select id="results-race-select" class="form-input" style="min-height: 36px; padding: 4px 12px; font-size: var(--text-sm); font-weight: 600; background: var(--bg-base); color: var(--text-primary); border-color: var(--glass-border); border-radius: var(--radius-md); cursor: pointer; max-width: 360px;">
+          ${allRaces.map(r => {
+            const isSelected = r.id === raceId;
+            const hasRes = racesWithResultsStatus[r.id];
+            const tag = hasRes ? '✓ Results Available' : (r.status || 'upcoming').toUpperCase();
+            return `<option value="${r.id}" ${isSelected ? 'selected' : ''}>
+              Round ${String(r.round).padStart(2, '0')} · ${r.countryFlag || '🏁'} ${r.name} (${tag})
+            </option>`;
+          }).join('')}
+        </select>
+        <div style="display: inline-flex; gap: 4px;">
+          <button class="btn btn-sm btn-ghost" id="btn-prev-gp" ${prevRace ? '' : 'disabled'} title="${prevRace ? `Go to Round ${prevRace.round} (${prevRace.name})` : 'No previous Grand Prix'}" style="padding: 4px 8px; font-size: var(--text-xs);">
+            ← Prev GP
+          </button>
+          <button class="btn btn-sm btn-ghost" id="btn-next-gp" ${nextRace ? '' : 'disabled'} title="${nextRace ? `Go to Round ${nextRace.round} (${nextRace.name})` : 'No next Grand Prix'}" style="padding: 4px 8px; font-size: var(--text-xs);">
+            Next GP →
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+        <button class="btn btn-secondary btn-sm" id="btn-export-results-breakdown" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="12" y2="18"></line>
+            <line x1="15" y1="15" x2="12" y2="18"></line>
+          </svg>
+          Export Excel
+        </button>
+        ${isAdmin() ? `
+          <button class="btn btn-secondary btn-sm" id="btn-edit-results-breakdown" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+            Edit Results
+          </button>
+        ` : ''}
+      </div>
     </div>
 
     <!-- Session Tabs -->
@@ -760,6 +806,32 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
       if (targetSession === session) return;
       navigateTo('results', raceId, targetSession);
     });
+  });
+
+  // Grand Prix Weekend dropdown change handler
+  document.getElementById('results-race-select')?.addEventListener('change', (e) => {
+    const targetRaceId = e.target.value;
+    if (targetRaceId === raceId) return;
+    const targetRace = allRaces.find(r => r.id === targetRaceId);
+    const targetSessions = targetRace ? (SESSION_KEYS[targetRace.weekendType] || SESSION_KEYS.standard) : ['race'];
+    const targetSession = targetSessions.includes(session) ? session : targetSessions[targetSessions.length - 1];
+    navigateTo('results', targetRaceId, targetSession);
+  });
+
+  // Prev GP button
+  document.getElementById('btn-prev-gp')?.addEventListener('click', () => {
+    if (!prevRace) return;
+    const targetSessions = SESSION_KEYS[prevRace.weekendType] || SESSION_KEYS.standard;
+    const targetSession = targetSessions.includes(session) ? session : targetSessions[targetSessions.length - 1];
+    navigateTo('results', prevRace.id, targetSession);
+  });
+
+  // Next GP button
+  document.getElementById('btn-next-gp')?.addEventListener('click', () => {
+    if (!nextRace) return;
+    const targetSessions = SESSION_KEYS[nextRace.weekendType] || SESSION_KEYS.standard;
+    const targetSession = targetSessions.includes(session) ? session : targetSessions[targetSessions.length - 1];
+    navigateTo('results', nextRace.id, targetSession);
   });
 }
 

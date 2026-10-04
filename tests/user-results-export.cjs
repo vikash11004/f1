@@ -176,6 +176,25 @@ async function run() {
     assert.ok(gridText.includes('Jordan Lee'), 'Other player Jordan Lee should be visible');
     assert.ok(gridText.includes('Sam Rivera'), 'Other player Sam Rivera should be visible');
 
+    // 4b. Test Grand Prix Weekend dropdown and Prev/Next buttons
+    console.log('Testing Weekend Selector Dropdown on Results page...');
+    const raceSelect = userPage.locator('#results-race-select');
+    assert.equal(await raceSelect.isVisible(), true, 'Results page should have weekend select dropdown');
+    const optionCount = await raceSelect.locator('option').count();
+    assert.ok(optionCount >= 5, `Race dropdown should list all season races (found ${optionCount})`);
+
+    // Test switching to Chinese GP (r2) via dropdown
+    await raceSelect.selectOption('r2');
+    await userPage.waitForTimeout(500);
+    const updatedTitle = await userPage.locator('#results-page .page-title').innerText();
+    assert.ok(updatedTitle.toUpperCase().includes('CHINESE GRAND PRIX'), 'Selecting race should update Results page to Chinese GP');
+
+    // Test using Prev GP button to navigate back to Australian GP (r1)
+    await userPage.locator('#btn-prev-gp').click();
+    await userPage.waitForTimeout(500);
+    const prevTitle = await userPage.locator('#results-page .page-title').innerText();
+    assert.ok(prevTitle.toUpperCase().includes('AUSTRALIAN GRAND PRIX'), 'Prev GP button should navigate back to Australian GP');
+
     // 5. Test switching to Official Classification sub-view tab
     console.log('Testing Official Classification sub-view tab...');
     await userPage.locator('#view-tab-official').click();
