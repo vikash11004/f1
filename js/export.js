@@ -7,7 +7,8 @@ import {
   getDocument,
   getAllDocuments,
   queryCollection,
-  isAdmin
+  isAdmin,
+  ADMIN_UID
 } from './firebase.js';
 import {
   SESSION_KEYS,
@@ -43,6 +44,124 @@ export async function ensureXLSXLoaded() {
     script.onerror = () => reject(new Error('Failed to load Excel library from CDN'));
     document.head.appendChild(script);
   });
+}
+
+/**
+ * Calculate the cumulative overall leaderboard up to and including a specific race & session.
+ * @param {Object} targetRace - race object { id, round, name, ... }
+ * @param {string} targetSessionKey - session key ('quali', 'race', etc.)
+ * @param {Object} [currentSessionScoreMap={}] - optional map of userId -> score object for current session
+ * @returns {Promise<Array<Object>>} sorted array of player overall standings objects
+ */
+export async function getCumulativeLeaderboardTillSession(targetRace, targetSessionKey, currentSessionScoreMap = {}) {
+  try {
+    const [allRaces, allScores, users] = await Promise.all([
+      getAllDocuments('races'),
+      getAllDocuments('scores'),
+      getAllDocuments('users')
+    ]);
+
+    allRaces.sort((a, b) => a.round - b.round);
+
+    // Filter out admin users
+    const players = (users || []).filter(u => u.id !== ADMIN_UID && !u.isAdmin && u.role !== 'admin');
+
+    // Build list of eligible sessions in chronological order up to targetRace + targetSessionKey
+    const targetRound = Number(targetRace.round) || 1;
+    const eligibleSessions = [];
+
+    for (const r of allRaces) {
+      const rRound = Number(r.round) || 1;
+      if (rRound > targetRound) continue;
+
+      const sessions = SESSION_KEYS[r.weekendType] || SESSION_KEYS.standard;
+      if (rRound < targetRound) {
+        for (const s of sessions) {
+          eligibleSessions.push({ raceId: r.id, round: rRound, session: s });
+        }
+      } else if (rRound === targetRound) {
+        const idx = sessions.indexOf(targetSessionKey);
+        const cut = idx >= 0 ? sessions.slice(0, idx + 1) : sessions;
+        for (const s of cut) {
+          eligibleSessions.push({ raceId: r.id, round: rRound, session: s });
+        }
+      }
+    }
+
+    // Build player standings
+    const standings = players.map(p => {
+      let cumulativeTotal = 0;
+      let cumulativeAccuracy = 0;
+      let cumulativeBonus = 0;
+      let sessionsCount = 0;
+      let currentSessionPts = 0;
+
+      for (const es of eligibleSessions) {
+        let score = null;
+        if (es.raceId === targetRace.id && es.session === targetSessionKey) {
+          score = currentSessionScoreMap[p.id] || allScores.find(s => s.userId === p.id && s.raceId === es.raceId && s.session === es.session);
+        } else {
+          score = allScores.find(s => s.userId === p.id && s.raceId === es.raceId && s.session === es.session);
+        }
+
+        if (score && score.totalPoints !== undefined) {
+          cumulativeTotal += Number(score.totalPoints || 0);
+          cumulativeAccuracy += Number(score.accuracyPoints || 0);
+          cumulativeBonus += Number(score.bonusPoints || 0);
+          sessionsCount += 1;
+
+          if (es.raceId === targetRace.id && es.session === targetSessionKey) {
+            currentSessionPts = Number(score.totalPoints || 0);
+          }
+        }
+      }
+
+      // If no granular session scores were found (e.g. initial fixture or mock where only seasonPoints is set on user),
+      // fall back gracefully to user.seasonPoints or current session points
+      if (sessionsCount === 0) {
+        const currentScore = currentSessionScoreMap[p.id];
+        if (currentScore && currentScore.totalPoints !== undefined) {
+          cumulativeTotal = Number(currentScore.totalPoints || 0);
+          cumulativeAccuracy = Number(currentScore.accuracyPoints || 0);
+          cumulativeBonus = Number(currentScore.bonusPoints || 0);
+          currentSessionPts = cumulativeTotal;
+          sessionsCount = 1;
+        } else if (p.seasonPoints !== undefined && p.seasonPoints > 0) {
+          cumulativeTotal = Number(p.seasonPoints || 0);
+        }
+      }
+
+      return {
+        userId: p.id,
+        displayName: p.displayName || 'Player',
+        totalPoints: cumulativeTotal,
+        accuracyPoints: cumulativeAccuracy,
+        bonusPoints: cumulativeBonus,
+        currentSessionPoints: currentSessionPts,
+        sessionsCount,
+        email: p.email || ''
+      };
+    });
+
+    // Sort by totalPoints descending, then accuracyPoints descending, then name ascending
+    standings.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.accuracyPoints !== a.accuracyPoints) return b.accuracyPoints - a.accuracyPoints;
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    // Compute ranks and gap to leader
+    const leaderPts = standings[0]?.totalPoints || 0;
+    standings.forEach((p, idx) => {
+      p.rank = idx + 1;
+      p.gap = idx === 0 ? '-' : `-${leaderPts - p.totalPoints}`;
+    });
+
+    return standings;
+  } catch (err) {
+    console.warn('[Export] Error calculating cumulative leaderboard:', err);
+    return [];
+  }
 }
 
 /**
@@ -309,6 +428,43 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
       offSheet['!cols'] = [{ wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 16 }];
       window.XLSX.utils.book_append_sheet(workbook, offSheet, "Official Classification");
 
+      // --- SHEET 4: OVERALL LEADERBOARD TILL THIS SESSION ---
+      const overallStandings = await getCumulativeLeaderboardTillSession(race, sessionKey, scoreMap);
+      const overallLeaderboardRows = [
+        ["FORMULA 1 PREDICTION LEAGUE — OVERALL CHAMPIONSHIP LEADERBOARD"],
+        [`Standings Up to: Round ${race.round} — ${raceName} (${sessionFullLabel})`],
+        [`Cutoff: All verified sessions from Round 1 through Round ${race.round} [${sessionLabel}]`],
+        [`Exported: ${new Date().toLocaleString()}`],
+        [],
+        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Current Session Pts", "Sessions Scored", "Gap to Leader"]
+      ];
+
+      overallStandings.forEach((os) => {
+        overallLeaderboardRows.push([
+          `#${os.rank}`,
+          os.displayName,
+          os.totalPoints,
+          os.accuracyPoints,
+          os.bonusPoints,
+          os.currentSessionPoints,
+          os.sessionsCount,
+          os.gap
+        ]);
+      });
+
+      const overallSheet = window.XLSX.utils.aoa_to_sheet(overallLeaderboardRows);
+      overallSheet['!cols'] = [
+        { wch: 18 },
+        { wch: 26 },
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 22 },
+        { wch: 20 },
+        { wch: 16 },
+        { wch: 16 }
+      ];
+      window.XLSX.utils.book_append_sheet(workbook, overallSheet, "Overall Leaderboard");
+
     } else {
       // ==========================================
       // BUILD WORKBOOK: PREDICTIONS ONLY (RESULTS PENDING)
@@ -387,6 +543,40 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
       const subSheet = window.XLSX.utils.aoa_to_sheet(subRows);
       subSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
       window.XLSX.utils.book_append_sheet(workbook, subSheet, "Submissions");
+
+      // Sheet 3: Overall Leaderboard (Prior to this session)
+      const overallStandings = await getCumulativeLeaderboardTillSession(race, sessionKey, {});
+      const overallLeaderboardRows = [
+        ["FORMULA 1 PREDICTION LEAGUE — OVERALL CHAMPIONSHIP LEADERBOARD"],
+        [`Cumulative Standings: Prior to Round ${race.round} (${raceName}) — ${sessionFullLabel}`],
+        [`Exported: ${new Date().toLocaleString()}`],
+        [],
+        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Sessions Scored", "Gap to Leader"]
+      ];
+
+      overallStandings.forEach((os) => {
+        overallLeaderboardRows.push([
+          `#${os.rank}`,
+          os.displayName,
+          os.totalPoints,
+          os.accuracyPoints,
+          os.bonusPoints,
+          os.sessionsCount,
+          os.gap
+        ]);
+      });
+
+      const overallSheet = window.XLSX.utils.aoa_to_sheet(overallLeaderboardRows);
+      overallSheet['!cols'] = [
+        { wch: 18 },
+        { wch: 26 },
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 16 }
+      ];
+      window.XLSX.utils.book_append_sheet(workbook, overallSheet, "Overall Leaderboard");
     }
 
     // 6. Write and trigger file download
@@ -469,7 +659,7 @@ export async function openAdminExportModal(initialRaceId = null, initialSessionK
         </div>
         <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-4);">
           <p class="modal-message">
-            Download an official Excel (.xlsx) report for any session in the 2026 season. Includes finishing orders, player predictions, accuracy scores, and bonus breakdowns.
+            Download an official Excel (.xlsx) report for any session in the 2026 season. Includes finishing orders, player predictions, accuracy scores, bonus breakdowns, and overall leaderboard till that session.
           </p>
 
           <div class="form-group">

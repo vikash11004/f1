@@ -25,7 +25,7 @@ import { calculateSessionScore, sortByActualPosition } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
 import { showToast, navigateTo, formatRound } from './ui.js';
 import { escapeHTML } from './design.js';
-import { exportSessionToExcel } from './export.js';
+import { exportSessionToExcel, getCumulativeLeaderboardTillSession } from './export.js';
 
 /**
  * Render the results page (for both users and admin)
@@ -371,6 +371,15 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
             <line x1="15" y1="3" x2="15" y2="21"></line>
           </svg>
           Grid Picks Matrix
+        </button>
+        <button class="toggle-option" data-view="overall" id="view-tab-overall" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-.82 6-3.96 6-7.66V4H4v3c0 3.7 2.52 6.84 6 7.66z"></path>
+          </svg>
+          Overall Leaderboard
         </button>
       </div>
 
@@ -770,6 +779,140 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
       document.getElementById('btn-export-unsubmitted-excel')?.addEventListener('click', () => {
         exportSessionToExcel(raceId, session);
       });
+    }
+
+    if (currentView === 'overall') {
+      // ==========================================
+      // VIEW 4: OVERALL LEADERBOARD TILL THIS SESSION
+      // ==========================================
+      const scoreMap = {};
+      playerScores.forEach(ps => { scoreMap[ps.userId] = ps; });
+
+      area.innerHTML = `
+        <div class="spinner-overlay" style="min-height: 200px;">
+          <div class="spinner-sm"></div>
+          <span class="spinner-text">Tallying overall leaderboard...</span>
+        </div>
+      `;
+
+      getCumulativeLeaderboardTillSession(raceDoc, session, scoreMap).then(overallStandings => {
+        if (!overallStandings || overallStandings.length === 0) {
+          area.innerHTML = `
+            <div class="empty-state" style="padding: var(--space-8) var(--space-4);">
+              ${renderEmptyStateSVG()}
+              <h3 class="empty-state-title">No Standings Available</h3>
+              <p class="empty-state-text">No player points have been recorded up to this session yet.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const topThree = overallStandings.slice(0, 3);
+        const currentUid = auth.currentUser?.uid;
+
+        area.innerHTML = `
+          <div class="card animate-fade-in" style="margin-bottom: var(--space-6);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
+              <div>
+                <p class="eyebrow" style="color: var(--accent); margin-bottom: 2px;">CUMULATIVE CHAMPIONSHIP STANDINGS</p>
+                <h2 class="text-display" style="font-size: var(--text-lg); margin: 0;">
+                  Overall Leaderboard Through Round ${raceDoc?.round || 1} (${sessionLabel})
+                </h2>
+                <p class="text-body-sm text-muted" style="margin: 4px 0 0 0;">
+                  Cumulative standings for all players tallying points from Round 1 through this session.
+                </p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-export-overall-direct" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12"></line>
+                  <line x1="9" y1="15" x2="12" y2="18"></line>
+                  <line x1="15" y1="15" x2="12" y2="18"></line>
+                </svg>
+                Export Excel (.xlsx)
+              </button>
+            </div>
+
+            <!-- Podium Mini Cards -->
+            ${topThree.length >= 1 ? `
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-5);">
+                ${topThree.map((p, idx) => {
+                  const borderColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+                  const badges = ['1ST', '2ND', '3RD'];
+                  const isMe = p.userId === currentUid;
+                  return `
+                    <div style="background: var(--bg-surface); border: 1px solid ${borderColors[idx] || 'var(--glass-border)'}; border-radius: var(--radius-md); padding: 12px 14px; position: relative; overflow: hidden;">
+                      <div style="position: absolute; top: 0; right: 0; background: ${borderColors[idx]}; color: #000; font-size: 10px; font-weight: 800; padding: 2px 8px; border-bottom-left-radius: var(--radius-sm);">
+                        ${badges[idx]}
+                      </div>
+                      <div style="font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; font-weight: 600;">
+                        Rank #${p.rank}
+                      </div>
+                      <div style="font-weight: 700; font-size: var(--text-base); color: ${isMe ? 'var(--accent)' : 'var(--text-primary)'}; margin: 2px 0;">
+                        ${escapeHTML(p.displayName)} ${isMe ? '<span style="font-size: 11px; opacity: 0.8;">(You)</span>' : ''}
+                      </div>
+                      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px;">
+                        <span class="text-data" style="font-size: var(--text-lg); font-weight: 700; color: var(--text-primary);">${p.totalPoints} PTS</span>
+                        <span style="font-size: var(--text-xs); color: var(--text-muted);">${p.gap}</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Overall Championship Table -->
+            <div class="table-responsive">
+              <table class="official-table" role="table" aria-label="Overall leaderboard till session">
+                <thead>
+                  <tr>
+                    <th style="width: 70px;">Rank</th>
+                    <th>Player</th>
+                    <th style="text-align: right;">Cumulative Accuracy</th>
+                    <th style="text-align: right;">Cumulative Bonus</th>
+                    <th style="text-align: right;">This Event</th>
+                    <th style="text-align: right;">Cumulative Total</th>
+                    <th style="text-align: right;">Gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${overallStandings.map((p) => {
+                    const isMe = p.userId === currentUid;
+                    return `
+                      <tr style="${isMe ? 'background: rgba(232, 0, 45, 0.06); font-weight: 600;' : ''}">
+                        <td>
+                          <span class="badge ${p.rank === 1 ? 'badge-primary' : 'badge-surface'}" style="font-weight: 700;">
+                            #${p.rank}
+                          </span>
+                        </td>
+                        <td style="font-weight: 600; color: ${isMe ? 'var(--accent)' : 'var(--text-primary)'};">
+                          ${escapeHTML(p.displayName)}
+                          ${isMe ? ' <span style="font-size: var(--text-xs); color: var(--text-muted);">(You)</span>' : ''}
+                        </td>
+                        <td style="text-align: right; color: var(--text-secondary);">${p.accuracyPoints}</td>
+                        <td style="text-align: right; color: var(--text-secondary);">${p.bonusPoints}</td>
+                        <td style="text-align: right; color: var(--accent); font-weight: 600;">+${p.currentSessionPoints}</td>
+                        <td style="text-align: right;">
+                          <span class="text-data" style="font-weight: 800; font-size: var(--text-base); color: var(--text-primary);">
+                            ${p.totalPoints}
+                          </span>
+                        </td>
+                        <td style="text-align: right; color: var(--text-muted); font-size: var(--text-sm);">${p.gap}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('btn-export-overall-direct')?.addEventListener('click', () => {
+          exportSessionToExcel(raceId, session);
+        });
+      });
+      return;
     }
   }
 

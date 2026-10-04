@@ -178,6 +178,7 @@ async function run() {
 
     assert.ok(exportResult.exportedFile, 'Excel file should have been exported');
     assert.match(exportResult.exportedFile, /Australian_Grand_Prix.*\.xlsx/, 'Filename should match Australian GP');
+    assert.ok(exportResult.sheetNames.includes('Overall Leaderboard'), 'Excel should contain Overall Leaderboard sheet');
     console.log('Exported file successfully:', exportResult.exportedFile);
     console.log('Generated sheets:', exportResult.sheetNames);
 

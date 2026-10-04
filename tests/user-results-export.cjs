@@ -213,6 +213,14 @@ async function run() {
     assert.ok(matrixText.toUpperCase().includes('ALEX MORGAN'), 'Matrix should show current user column');
     assert.ok(matrixText.toUpperCase().includes('JORDAN LEE'), 'Matrix should show other players column');
 
+    // 6b. Test switching to Overall Leaderboard tab
+    console.log('Testing Overall Leaderboard tab on Results page...');
+    await userPage.locator('#view-tab-overall').click();
+    await userPage.locator('#btn-export-overall-direct').waitFor();
+    const overallText = await userPage.locator('#results-content-area').innerText();
+    assert.ok(overallText.toUpperCase().includes('CUMULATIVE CHAMPIONSHIP STANDINGS') || overallText.toUpperCase().includes('OVERALL LEADERBOARD'), 'Overall tab should show championship standings heading');
+    assert.ok(overallText.toUpperCase().includes('ALEX MORGAN'), 'Overall tab should show current player');
+
     // 7. Test Excel export from Results Breakdown page
     console.log('Testing Excel export by regular user from Results page...');
     const exportResult = await userPage.evaluate(async () => {
@@ -232,6 +240,7 @@ async function run() {
     assert.ok(exportResult.sheetNames.includes('Results & Breakdown'), 'Excel should contain Results & Breakdown sheet');
     assert.ok(exportResult.sheetNames.includes('Session Leaderboard'), 'Excel should contain Session Leaderboard sheet');
     assert.ok(exportResult.sheetNames.includes('Official Classification'), 'Excel should contain Official Classification sheet');
+    assert.ok(exportResult.sheetNames.includes('Overall Leaderboard'), 'Excel should contain Overall Leaderboard sheet');
     console.log('Generated sheets for regular user:', exportResult.sheetNames);
 
     // 8. Test Export Modal from Race Calendar for regular user
