@@ -219,13 +219,12 @@ function dismissToast(id) {
   const index = toasts.findIndex(t => t.id === id);
   if (index === -1) return;
 
-  const toast = toasts[index];
+  const [toast] = toasts.splice(index, 1);
   clearTimeout(toast.timer);
   
   toast.element.classList.add('dismissing');
   setTimeout(() => {
     toast.element.remove();
-    toasts.splice(index, 1);
   }, 300);
 }
 

@@ -8,7 +8,8 @@ import {
   getAllDocuments,
   queryCollection,
   isAdmin,
-  ADMIN_UID
+  ADMIN_UID,
+  auth
 } from './firebase.js';
 import {
   SESSION_KEYS,
@@ -261,6 +262,10 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
       });
     }
 
+    const currentUserId = auth.currentUser?.uid;
+    const currentUserPred = validPredictions.find(p => p.userId === currentUserId);
+    const canViewOthers = isAdmin() || Boolean(currentUserPred);
+
     const workbook = window.XLSX.utils.book_new();
 
     // ==========================================
@@ -306,6 +311,12 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         const row = [pos, actualName];
 
         validPredictions.forEach(p => {
+          const isYou = p.userId === currentUserId;
+          if (!canViewOthers && !isYou) {
+            row.push("[Hidden - Predict to unlock]", "-", 0);
+            return;
+          }
+
           const predDriverId = p.order && p.order[i] ? p.order[i] : null;
           const predDriver = getDriver(predDriverId);
           const predName = predDriver ? `${predDriver.code} - ${predDriver.name}` : '-';
@@ -382,8 +393,9 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
       validPredictions.forEach((p, idx) => {
         const userScore = scoreMap[p.userId];
         const userName = userMap[p.userId]?.displayName || 'Unknown Player';
+        const isYou = p.userId === currentUserId;
         const p1Driver = getDriver(p.order?.[0]);
-        const p1Name = p1Driver ? `${p1Driver.code} - ${p1Driver.name}` : '-';
+        const p1Name = (!canViewOthers && !isYou) ? "[Hidden]" : (p1Driver ? `${p1Driver.code} - ${p1Driver.name}` : '-');
 
         leaderboardRows.push([
           idx + 1,
@@ -500,6 +512,12 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         const row = [pos];
 
         validPredictions.forEach(p => {
+          const isYou = p.userId === currentUserId;
+          if (!canViewOthers && !isYou) {
+            row.push("[Hidden - Predict to unlock]");
+            return;
+          }
+
           const driverId = p.order?.[i];
           const driver = getDriver(driverId);
           const team = driver ? getTeamById(driver.team)?.name : '';
@@ -526,9 +544,10 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         const userName = userMap[p.userId]?.displayName || 'Unknown';
         const isLocked = Boolean(p.lockedAt);
         const lockTime = p.lockedAt ? new Date(p.lockedAt).toLocaleString() : 'Not locked';
-        const d1 = getDriver(p.order?.[0])?.code || '-';
-        const d2 = getDriver(p.order?.[1])?.code || '-';
-        const d3 = getDriver(p.order?.[2])?.code || '-';
+        const isYou = p.userId === currentUserId;
+        const d1 = (!canViewOthers && !isYou) ? "[Hidden]" : (getDriver(p.order?.[0])?.code || '-');
+        const d2 = (!canViewOthers && !isYou) ? "[Hidden]" : (getDriver(p.order?.[1])?.code || '-');
+        const d3 = (!canViewOthers && !isYou) ? "[Hidden]" : (getDriver(p.order?.[2])?.code || '-');
 
         subRows.push([
           userName,
@@ -585,7 +604,11 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
     const filename = `${cleanRaceName}_${sessionLabel}_${suffix}.xlsx`;
 
     window.XLSX.writeFile(workbook, filename);
-    showToast(`Exported "${filename}" successfully!`, 'success', 3500);
+    if (!canViewOthers) {
+      showToast(`Exported "${filename}". Note: Other players' driver picks are hidden because you haven't predicted for this session.`, 'info', 4500);
+    } else {
+      showToast(`Exported "${filename}" successfully!`, 'success', 3500);
+    }
 
   } catch (err) {
     console.error('[Export] Error during exportSessionToExcel:', err);

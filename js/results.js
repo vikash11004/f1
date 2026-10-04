@@ -243,6 +243,13 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   const currentUserScore = playerScores.find(ps => ps.userId === currentUserId);
   const currentUserRank = currentUserScore ? (playerScores.indexOf(currentUserScore) + 1) : null;
   const currentUserName = userMap[currentUserId]?.displayName || 'You';
+  const userHasPredicted = Boolean(currentUserScore);
+  const canViewOthers = isAdmin() || userHasPredicted;
+
+  // Check if session is currently open for prediction
+  const isSessionCancelled = raceDoc?.cancelledSessions?.[session] === true;
+  const isSessionLocked = raceDoc?.status === 'completed' || raceDoc?.status === 'locked' || raceDoc?.sessionLocks?.[session] === true;
+  const canPredictSession = !isSessionCancelled && !isSessionLocked && !isAdmin();
 
   const sessionLabel = SESSION_FULL_LABELS[session] || session;
   const raceName = raceDoc?.name || 'Grand Prix';
@@ -528,6 +535,25 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
             </button>
           </div>
 
+          ${!canViewOthers ? `
+            <div style="background: rgba(232,0,45,0.08); border: 1px solid rgba(232,0,45,0.25); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 500;">
+                  Other players' driver picks are locked. You must submit your prediction for this session to reveal everyone's picks.
+                </span>
+              </div>
+              ${canPredictSession ? `
+                <button class="btn btn-primary btn-sm" id="btn-matrix-predict" style="padding: 4px 10px; font-size: var(--text-xs);">
+                  Predict Now
+                </button>
+              ` : ''}
+            </div>
+          ` : ''}
+
           <table class="official-table" style="min-width: ${300 + playerScores.length * 160}px;">
             <thead>
               <tr>
@@ -551,13 +577,17 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                     <td style="font-weight: bold; color: var(--text-muted);">P${pos}</td>
                     ${hasResults ? `<td style="font-weight: 600; background: rgba(232,0,45,0.05);">${actualText}</td>` : ''}
                     ${playerScores.map(ps => {
+                      const isYou = ps.userId === currentUserId;
+                      if (!canViewOthers && !isYou) {
+                        return `<td style="color: var(--text-muted); font-size: var(--text-xs); letter-spacing: 0.05em; font-style: italic;">🔒 Hidden</td>`;
+                      }
+
                       const ds = ps.driverScores?.find(d => d.actualPos === pos || d.predictedPos === pos);
                       // Driver predicted at this exact index
                       const predDoc = ps.order ? ps.order[idx] : null;
                       // Fallback to driverScores
                       const driverIdAtPos = predDoc || (ps.driverScores?.find(d => d.predictedPos === pos)?.driverId);
                       const drv = getDriver(driverIdAtPos);
-                      const isYou = ps.userId === currentUserId;
 
                       return `
                         <td style="${isYou ? 'background: rgba(232,0,45,0.04);' : ''}">
@@ -572,6 +602,10 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
           </table>
         </div>
       `;
+
+      document.getElementById('btn-matrix-predict')?.addEventListener('click', () => {
+        navigateTo('predict', raceId, session);
+      });
 
       document.getElementById('btn-export-matrix-direct')?.addEventListener('click', () => {
         exportSessionToExcel(raceId, session);
@@ -678,19 +712,34 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         `;
       } else if (!isAdmin()) {
         html += `
-          <div class="card" style="background: var(--glass-bg); padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); margin-bottom: var(--space-6); display: flex; align-items: center; justify-content: space-between;">
+          <div class="card" style="background: rgba(232,0,45,0.06); border: 1px solid rgba(232,0,45,0.22); padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); margin-bottom: var(--space-6); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
             <div>
-              <h3 class="text-md" style="margin: 0 0 4px 0;">You did not enter predictions for this session</h3>
-              <p class="text-body-sm text-muted" style="margin: 0;">Explore the official results and other players' predictions below.</p>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <h3 class="text-md" style="margin: 0; font-weight: 700;">You have not predicted for this session</h3>
+              </div>
+              <p class="text-body-sm text-muted" style="margin: 0;">
+                Other players' driver picks are hidden. Submit your prediction for this session to reveal everyone's picks!
+              </p>
             </div>
-            <button class="btn btn-secondary btn-sm" id="btn-export-unsubmitted-excel" style="display: inline-flex; align-items: center; gap: 6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Export Excel
-            </button>
+            <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+              ${canPredictSession ? `
+                <button class="btn btn-primary btn-sm btn-predict-unlock" style="display: inline-flex; align-items: center; gap: 6px;">
+                  Predict Now
+                </button>
+              ` : ''}
+              <button class="btn btn-secondary btn-sm" id="btn-export-unsubmitted-excel" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export Excel
+              </button>
+            </div>
           </div>
         `;
       }
@@ -718,6 +767,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
             const userName = user?.displayName || 'Unknown Player';
             const sortedScores = sortByActualPosition(ps.driverScores || []);
             const isUser = ps.userId === currentUserId;
+            const hideThisPlayerPicks = !canViewOthers && !isUser;
 
             return `
               <div class="result-player-card ${isUser ? 'is-current-user' : ''} animate-card-enter stagger-${(index % 6) + 1}">
@@ -731,44 +781,67 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                     <small style="display: block; font-size: 10px; color: var(--text-muted);">${ps.accuracyPoints || 0} acc + ${ps.bonusPoints || 0} bon</small>
                   </div>
                 </div>
-                <div style="padding: 0; max-height: 380px; overflow-y: auto;">
-                  <table class="score-breakdown">
-                    <thead>
-                      <tr>
-                        <th>Driver</th>
-                        <th>Pred</th>
-                        <th>Actual</th>
-                        <th>Diff</th>
-                        <th>Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${sortedScores.map(ds => {
-                        const driver = getDriver(ds.driverId);
-                        const teamColor = driver ? getTeamColor(driver.team) : '#888';
-                        const diffColor = ds.diff === 0 ? 'var(--success)' : ds.diff <= 2 ? 'var(--sprint-amber)' : 'var(--text-muted)';
-                        return `
-                          <tr>
-                            <td>
-                              <span style="display: inline-block; width: 3px; height: 12px; background: ${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
-                              ${driver?.code || ds.driverId}
-                            </td>
-                            <td>P${ds.predictedPos}</td>
-                            <td>P${ds.actualPos}</td>
-                            <td style="color: ${diffColor}; font-weight: 600;">${ds.diff === 0 ? '✓' : ds.diff}</td>
-                            <td style="color: ${ds.points > 0 ? 'var(--accent)' : 'var(--text-muted)'}; font-weight: bold;">${ds.points}</td>
-                          </tr>
-                        `;
-                      }).join('')}
-                      ${(ps.bonuses || []).filter(b => b.earned).map(b => `
-                        <tr class="bonus-row">
-                          <td colspan="4" style="font-weight: 600; color: var(--accent);">✓ ${b.label}</td>
-                          <td style="font-weight: bold; color: var(--accent);">+${b.points}</td>
+
+                ${hideThisPlayerPicks ? `
+                  <div style="padding: var(--space-6) var(--space-4); text-align: center; background: rgba(0,0,0,0.15); border-top: 1px solid var(--glass-border); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(232,0,45,0.12); border: 1px solid rgba(232,0,45,0.3); display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                    </div>
+                    <div style="font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
+                      Driver Picks Hidden
+                    </div>
+                    <p style="font-size: var(--text-xs); color: var(--text-muted); margin: 0 auto; max-width: 220px; line-height: 1.4;">
+                      Submit your prediction for this session to reveal ${escapeHTML(userName)}'s driver picks.
+                    </p>
+                    ${canPredictSession ? `
+                      <button class="btn btn-primary btn-sm btn-predict-unlock" style="margin-top: var(--space-3); padding: 4px 14px; font-size: var(--text-xs); display: inline-flex; align-items: center; gap: 5px;">
+                        Predict Now
+                      </button>
+                    ` : ''}
+                  </div>
+                ` : `
+                  <div style="padding: 0; max-height: 380px; overflow-y: auto;">
+                    <table class="score-breakdown">
+                      <thead>
+                        <tr>
+                          <th>Driver</th>
+                          <th>Pred</th>
+                          <th>Actual</th>
+                          <th>Diff</th>
+                          <th>Pts</th>
                         </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        ${sortedScores.map(ds => {
+                          const driver = getDriver(ds.driverId);
+                          const teamColor = driver ? getTeamColor(driver.team) : '#888';
+                          const diffColor = ds.diff === 0 ? 'var(--success)' : ds.diff <= 2 ? 'var(--sprint-amber)' : 'var(--text-muted)';
+                          return `
+                            <tr>
+                              <td>
+                                <span style="display: inline-block; width: 3px; height: 12px; background: ${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
+                                ${driver?.code || ds.driverId}
+                              </td>
+                              <td>P${ds.predictedPos}</td>
+                              <td>P${ds.actualPos}</td>
+                              <td style="color: ${diffColor}; font-weight: 600;">${ds.diff === 0 ? '✓' : ds.diff}</td>
+                              <td style="color: ${ds.points > 0 ? 'var(--accent)' : 'var(--text-muted)'}; font-weight: bold;">${ds.points}</td>
+                            </tr>
+                          `;
+                        }).join('')}
+                        ${(ps.bonuses || []).filter(b => b.earned).map(b => `
+                          <tr class="bonus-row">
+                            <td colspan="4" style="font-weight: 600; color: var(--accent);">✓ ${b.label}</td>
+                            <td style="font-weight: bold; color: var(--accent);">+${b.points}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                `}
               </div>
             `;
           }).join('')}
@@ -778,6 +851,11 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
       area.innerHTML = html;
       document.getElementById('btn-export-unsubmitted-excel')?.addEventListener('click', () => {
         exportSessionToExcel(raceId, session);
+      });
+      area.querySelectorAll('.btn-predict-unlock').forEach(btn => {
+        btn.addEventListener('click', () => {
+          navigateTo('predict', raceId, session);
+        });
       });
     }
 

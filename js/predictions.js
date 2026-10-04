@@ -514,6 +514,22 @@ async function fetchAndShowOthersPredictions() {
     ]);
 
     const adminUser = isAdmin();
+
+    if (!adminUser && !playerHasLocked) {
+      document.getElementById('side-panel').innerHTML = `
+        <div class="panel-header" style="margin-bottom: var(--space-3);">
+          <h2 class="text-lg">Other Players' Predictions</h2>
+          <button class="btn btn-icon btn-ghost" onclick="document.getElementById('side-panel-overlay').click()">✕</button>
+        </div>
+        <div class="empty-state" style="padding: var(--space-8) var(--space-4);">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+          <h3>Predictions Locked</h3>
+          <p class="text-muted">You must lock in your own prediction first to view other players' predictions.</p>
+        </div>
+      `;
+      return;
+    }
+
     const sessionLocks = currentRace.sessionLocks || {};
     const sessionIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
 

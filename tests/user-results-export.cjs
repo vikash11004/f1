@@ -85,6 +85,7 @@ async function run() {
     const userPage = await userContext.newPage();
     const pageErrors = [];
     userPage.on('pageerror', (err) => pageErrors.push(err.message));
+    userPage.on('console', (msg) => console.log('USER LOG:', msg.text()));
 
     // Seed mock official results and multi-user predictions for r1 race
     await userPage.goto(baseURL, { waitUntil: 'networkidle' });
@@ -104,16 +105,6 @@ async function run() {
         session: 'race',
         order,
         calculatedAt: Date.now()
-      });
-
-      // Current user (u1 - Alex Morgan) prediction
-      await setDocument('predictions', 'pred_u1_r1_race', {
-        id: 'pred_u1_r1_race',
-        raceId: 'r1',
-        session: 'race',
-        userId: 'u1',
-        order,
-        lockedAt: Date.now()
       });
 
       // Other player (u2 - Jordan Lee) prediction
@@ -150,29 +141,119 @@ async function run() {
     const resultsNavBtn = userPage.locator('.nav-item[data-page=results]');
     assert.equal(await resultsNavBtn.isVisible(), true, 'Results nav item should be visible in header');
 
-    // 2. Click Results in nav to navigate to Results page
-    console.log('Navigating to Results via Header Nav...');
+    // 2. Click Results in nav while user has NOT predicted yet
+    console.log('Navigating to Results as unpredicted user (Anti-Cheating Check)...');
     await resultsNavBtn.click();
-    await userPage.waitForTimeout(500);
+    await userPage.waitForTimeout(600);
 
-    // 3. Verify user's own performance card
-    console.log('Verifying User Personal Performance Card...');
+    // 2a. Verify Unpredicted Banner is shown
+    const unpredictedCard = userPage.locator('#results-page');
+    const unpredictedText = await unpredictedCard.innerText();
+    assert.ok(
+      unpredictedText.includes('You have not predicted for this session') || unpredictedText.includes('Driver Picks Hidden'),
+      'User who has not predicted must see notice that picks are hidden'
+    );
+    console.log('Verified: Notice displayed that current user has not predicted.');
+
+    // 2b. Verify other players cards show "Driver Picks Hidden"
+    const lockedPlayerCards = userPage.locator('.result-player-card');
+    assert.ok(await lockedPlayerCards.count() >= 2, 'Should display cards for other players');
+    const firstLockedText = await lockedPlayerCards.first().innerText();
+    assert.ok(
+      firstLockedText.includes('Driver Picks Hidden') && firstLockedText.includes('Submit your prediction'),
+      'Other players driver picks must be hidden from user who has not predicted'
+    );
+    console.log('Verified: Other players driver breakdown tables are locked.');
+
+    // 2c. Verify Grid Picks Matrix masks other players picks with 🔒 Hidden
+    await userPage.locator('#view-tab-matrix').click();
+    await userPage.waitForTimeout(300);
+    const lockedMatrixText = await userPage.locator('#results-content-area').innerText();
+    assert.ok(
+      lockedMatrixText.includes('Other players\' driver picks are locked'),
+      'Matrix view must show locked picks alert'
+    );
+    assert.ok(
+      lockedMatrixText.includes('🔒 Hidden'),
+      'Matrix view must display 🔒 Hidden for other players picks'
+    );
+    console.log('Verified: Grid Picks Matrix masks picks with 🔒 Hidden.');
+
+    // 2d. Verify Excel export masks other players picks when user has not predicted
+    console.log('Testing Excel export masking for unpredicted user...');
+    const maskedExport = await userPage.evaluate(async () => {
+      let s1Rows = [];
+      let s2Rows = [];
+      window.XLSX.writeFile = (wb) => {
+        const s1 = wb.Sheets['Results & Breakdown'];
+        const s2 = wb.Sheets['Session Leaderboard'];
+        s1Rows = s1 ? window.XLSX.utils.sheet_to_json(s1, { header: 1 }) : [];
+        s2Rows = s2 ? window.XLSX.utils.sheet_to_json(s2, { header: 1 }) : [];
+      };
+
+      const { exportSessionToExcel } = await import('./js/export.js');
+      await exportSessionToExcel('r1', 'race');
+
+      return {
+        s1Text: JSON.stringify(s1Rows),
+        s2Text: JSON.stringify(s2Rows)
+      };
+    });
+
+    assert.ok(
+      maskedExport.s1Text.includes('[Hidden - Predict to unlock]'),
+      'Excel export must mask other players driver picks when user has not predicted'
+    );
+    assert.ok(
+      maskedExport.s2Text.includes('[Hidden]'),
+      'Excel export must mask other players P1 pick in leaderboard when user has not predicted'
+    );
+    console.log('Verified: Excel export masks picks when user has not predicted.');
+
+    // 3. Now simulate user submitting prediction for this session
+    console.log('Submitting prediction for current user (u1 - Alex Morgan)...');
+    await userPage.evaluate(async () => {
+      const { setDocument } = await import('./js/firebase.js');
+      const order = [
+        'nor', 'pia', 'rus', 'ant', 'ver', 'had', 'lec', 'ham', 'alb', 'sai',
+        'lin', 'law', 'str', 'alo', 'oco', 'bea', 'hul', 'bor', 'gas', 'col',
+        'per', 'bot'
+      ];
+      await setDocument('predictions', 'pred_u1_r1_race', {
+        id: 'pred_u1_r1_race',
+        raceId: 'r1',
+        session: 'race',
+        userId: 'u1',
+        order,
+        lockedAt: Date.now()
+      });
+
+      const { navigateTo } = await import('./js/ui.js');
+      navigateTo('results', 'r1', 'race');
+    });
+
+    await userPage.waitForTimeout(600);
+
+    // 4. Verify user's own performance card is now shown
+    console.log('Verifying User Personal Performance Card is unlocked...');
     const heroCard = userPage.locator('.result-hero-card');
     await heroCard.waitFor();
     assert.equal(await heroCard.isVisible(), true, 'User should see their own result hero card');
     const heroText = await heroCard.innerText();
-    console.log('heroText:', JSON.stringify(heroText));
     assert.ok(heroText.includes('Alex Morgan') || heroText.includes('YOUR PERFORMANCE'), 'Hero card should display current user performance');
     assert.ok(heroText.toLowerCase().includes('rank'), 'User should see their session rank');
 
-    // 4. Verify other players' cards
-    console.log('Verifying other players results cards...');
+    // 4a. Verify other players cards now show the full breakdown table
+    console.log('Verifying other players breakdown tables are revealed...');
     const playerCards = userPage.locator('.result-player-card');
     const playerCardCount = await playerCards.count();
     assert.ok(playerCardCount >= 3, `Should display all players cards (found ${playerCardCount})`);
 
-    // Verify Jordan Lee and Sam Rivera are displayed
     const gridText = await userPage.locator('#results-grid').innerText();
+    assert.ok(!gridText.includes('Driver Picks Hidden'), 'Other players driver picks must no longer be hidden');
+    assert.ok(gridText.toUpperCase().includes('DIFF') && gridText.toUpperCase().includes('PTS'), 'Breakdown table should be visible');
+    assert.ok(gridText.includes('Jordan Lee'), 'Other player Jordan Lee should be visible');
+    assert.ok(gridText.includes('Sam Rivera'), 'Other player Sam Rivera should be visible');
     assert.ok(gridText.includes('Jordan Lee'), 'Other player Jordan Lee should be visible');
     assert.ok(gridText.includes('Sam Rivera'), 'Other player Sam Rivera should be visible');
 
@@ -228,13 +309,19 @@ async function run() {
       let sheetNames = [];
       window.XLSX.writeFile = (wb, filename) => {
         exportedFile = filename;
-        sheetNames = wb.SheetNames;
+        sheetNames = Array.from(wb.SheetNames || []);
       };
 
-      const { exportSessionToExcel } = await import('./js/export.js');
-      await exportSessionToExcel('r1', 'race');
+      try {
+        const { exportSessionToExcel } = await import('./js/export.js');
+        await exportSessionToExcel('r1', 'race');
+      } catch (e) {
+        console.error('ERROR in evaluate step 7:', e);
+      }
+
       return { exportedFile, sheetNames };
     });
+    console.log('Step 7 export result:', exportResult);
 
     assert.ok(exportResult.exportedFile, 'Regular user should be able to trigger Excel export');
     assert.ok(exportResult.sheetNames.includes('Results & Breakdown'), 'Excel should contain Results & Breakdown sheet');
