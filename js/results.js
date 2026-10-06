@@ -38,6 +38,10 @@ import { exportSessionToExcel, getCumulativeLeaderboardTillSession } from './exp
  * @param {boolean} editOverride - whether to force edit mode (admin only)
  */
 async function renderResults(raceId, sessionKey, editOverride = false) {
+  if (!isAdmin()) {
+    await renderResultsBreakdown(raceId, sessionKey);
+    return;
+  }
   if (editOverride && isAdmin()) {
     await renderPredictionBuilder(raceId, sessionKey, true, true);
     return;
@@ -47,7 +51,7 @@ async function renderResults(raceId, sessionKey, editOverride = false) {
   try {
     const existingResult = await getDocument('results', `${raceId}_${sessionKey}`);
     if (existingResult?.calculatedAt && Array.isArray(existingResult.order) && existingResult.order.length > 0) {
-      await renderResultsBreakdown(raceId, sessionKey);
+      await renderResultsBreakdown(raceId, sessionKey, existingResult);
       return;
     }
   } catch (e) {
@@ -199,15 +203,18 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   if (!page) return;
 
   // Load race data for session tabs and weekend selector
-  const raceDoc = await getDocument('races', raceId);
-  const allRaces = await getAllDocuments('races');
+  const [allRaces, allResults, users] = await Promise.all([
+    getAllDocuments('races'),
+    getAllDocuments('results'),
+    getAllDocuments('users')
+  ]);
+  const raceDoc = allRaces.find(r => r.id === raceId);
   allRaces.sort((a, b) => a.round - b.round);
   const currentRaceIndex = allRaces.findIndex(r => r.id === raceId);
   const prevRace = currentRaceIndex > 0 ? allRaces[currentRaceIndex - 1] : null;
   const nextRace = currentRaceIndex >= 0 && currentRaceIndex < allRaces.length - 1 ? allRaces[currentRaceIndex + 1] : null;
 
   // Query all results to show status tags in the dropdown
-  const allResults = await getAllDocuments('results');
   const racesWithResultsStatus = {};
   (allResults || []).forEach(r => {
     if (r.calculatedAt && r.order?.length) {
@@ -221,16 +228,13 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   // Check confirmed results status for all sessions
   const sessionResultsStatus = {};
   for (const s of sessions) {
-    try {
-      const resDoc = await getDocument('results', `${raceId}_${s}`);
-      if (resDoc?.calculatedAt && resDoc?.order?.length) {
-        sessionResultsStatus[s] = true;
-      }
-    } catch (e) {}
+    const resDoc = allResults.find(r => r.id === `${raceId}_${s}`);
+    if (resDoc?.calculatedAt && resDoc?.order?.length) {
+      sessionResultsStatus[s] = true;
+    }
   }
 
   // Get user names
-  const users = await getAllDocuments('users');
   const userMap = {};
   users.forEach(u => { userMap[u.id] = u; });
 
@@ -1061,7 +1065,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
  * @param {string} raceId 
  * @param {string} session 
  */
-async function renderResultsBreakdown(raceId, session) {
+async function renderResultsBreakdown(raceId, session, loadedResult = undefined) {
   const page = document.getElementById('results-page');
   if (!page) return;
 
@@ -1073,34 +1077,32 @@ async function renderResultsBreakdown(raceId, session) {
   `;
 
   try {
-    const existingResult = await getDocument('results', `${raceId}_${session}`);
+    const [existingResult, predictions] = await Promise.all([
+      loadedResult !== undefined ? loadedResult : getDocument('results', `${raceId}_${session}`),
+      queryCollection('predictions', [
+        ['raceId', '==', raceId],
+        ['session', '==', session]
+      ])
+    ]);
     const officialOrder = existingResult?.order || [];
 
-    // Get predictions
-    const predictions = await queryCollection('predictions', [
-      ['raceId', '==', raceId],
-      ['session', '==', session]
-    ]);
-
-    const playerScores = [];
-    for (const pred of predictions) {
-      if (!pred.order || pred.order.length === 0) continue;
+    const playerScores = await Promise.all(predictions.filter(pred => pred.order?.length).map(async pred => {
 
       if (officialOrder.length === 22) {
         const scoreDoc = await getDocument('scores', `${pred.userId}_${raceId}_${session}`);
         if (scoreDoc && scoreDoc.totalPoints !== undefined) {
-          playerScores.push(scoreDoc);
+          return scoreDoc;
         } else {
           const result = calculateSessionScore(pred.order, officialOrder, session);
-          playerScores.push({
+          return {
             userId: pred.userId,
             predictionId: pred.id,
             ...result
-          });
+          };
         }
       } else {
         // Pending official result
-        playerScores.push({
+        return {
           userId: pred.userId,
           predictionId: pred.id,
           order: pred.order,
@@ -1115,9 +1117,9 @@ async function renderResultsBreakdown(raceId, session) {
             diff: '-',
             points: 0
           }))
-        });
+        };
       }
-    }
+    }));
 
     await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
   } catch (err) {

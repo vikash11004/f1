@@ -125,6 +125,28 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     isReadOnly = false;
     hasCalculatedResults = false;
     isEditingExistingResults = false;
+    officialResultOrder = null;
+    userSessionScoreData = null;
+
+    // These promises live only for this render, so revisiting always reads fresh data.
+    const sessionResultsStatus = {};
+    const resultDocs = resultsMode ? await Promise.all(sessions.map(async s => {
+      try {
+        const result = await getDocument('results', `${raceId}_${s}`);
+        if (result?.calculatedAt) sessionResultsStatus[s] = true;
+        return result;
+      } catch (error) {
+        if (s === currentSession) throw error;
+        return null;
+      }
+    })) : [];
+    const scoreReads = new Map();
+    const loadScore = s => {
+      if (!scoreReads.has(s)) {
+        scoreReads.set(s, getDocument('scores', `${auth.currentUser.uid}_${raceId}_${s}`));
+      }
+      return scoreReads.get(s);
+    };
 
     if (!resultsMode) {
       if (currentRace.status === 'completed' || isCurrentSessionVoided) {
@@ -139,7 +161,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     // Load existing prediction or result
     let existingOrder = [];
     if (resultsMode) {
-      const existingResult = await getDocument('results', `${raceId}_${currentSession}`);
+      const existingResult = resultDocs[sessions.indexOf(currentSession)];
       if (existingResult?.order) {
         existingOrder = existingResult.order;
       }
@@ -177,7 +199,7 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
           if (existingResult?.order && existingResult?.calculatedAt) {
             hasCalculatedResults = true;
             officialResultOrder = existingResult.order;
-            userSessionScoreData = await getDocument('scores', `${auth.currentUser.uid}_${raceId}_${currentSession}`);
+            userSessionScoreData = await loadScore(currentSession);
           }
         } catch (e) {
           console.warn('[Predictions] Could not check official results:', e);
@@ -193,31 +215,16 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     // Load session scores if completed (for players)
     let sessionScores = {};
     if (currentRace.status === 'completed' || isLocked) {
-      for (const s of sessions) {
+      await Promise.all(sessions.map(async s => {
         try {
-          const scoreDoc = await getDocument('scores', `${auth.currentUser.uid}_${raceId}_${s}`);
+          const scoreDoc = await loadScore(s);
           if (scoreDoc?.totalPoints !== undefined) {
             sessionScores[s] = scoreDoc.totalPoints;
           }
         } catch (e) {
           console.warn(`[Predictions] Could not load score for session ${s}:`, e);
         }
-      }
-    }
-
-    // Load confirmed status for all sessions (for admin in results mode)
-    let sessionResultsStatus = {};
-    if (resultsMode) {
-      for (const s of sessions) {
-        try {
-          const resDoc = await getDocument('results', `${raceId}_${s}`);
-          if (resDoc?.calculatedAt) {
-            sessionResultsStatus[s] = true;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
+      }));
     }
 
     // Render the page
