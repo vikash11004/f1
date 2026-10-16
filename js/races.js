@@ -64,7 +64,7 @@ document.body.addEventListener('keydown', (event) => {
 /**
  * Render the Race Management page
  */
-async function renderRaces() {
+async function renderRaces(targetRaceId) {
   const page = document.getElementById('races-page');
   if (!page) return;
 
@@ -115,6 +115,17 @@ async function renderRaces() {
     races.sort((a, b) => a.round - b.round);
     _cachedRaces = races; // Update cache
     applyCalendarFilter();
+
+    if (targetRaceId) {
+      const targetRace = _cachedRaces.find(r => r.id === targetRaceId);
+      if (targetRace) {
+        openRacePanel(targetRace);
+        const row = document.getElementById(`race-row-${targetRaceId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
     page.querySelectorAll('[data-filter]').forEach(button => {
       button.addEventListener('click', () => {
         calendarFilter = button.dataset.filter;

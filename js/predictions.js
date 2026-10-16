@@ -112,6 +112,18 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       return;
     }
 
+    if (!resultsMode && currentRace.status === 'upcoming') {
+      page.innerHTML = `
+        <div class="empty-state">
+          ${renderEmptyStateSVG()}
+          <h3 class="empty-state-title">Predictions Not Open Yet</h3>
+          <p class="empty-state-text">Predictions for ${escapeHTML(currentRace.name)} have not been activated by the admin yet. Check back soon!</p>
+          <button class="btn btn-secondary" onclick="window.location.hash='#races'">View Race Calendar</button>
+        </div>
+      `;
+      return;
+    }
+
     const sessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
     currentSession = sessions.includes(sessionKey) ? sessionKey : sessions[0];
 

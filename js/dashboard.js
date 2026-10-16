@@ -145,13 +145,21 @@ async function renderDashboard() {
     if (nextRaceCard) {
       const handleNextRaceClick = () => {
         if (admin) {
-          navigateTo('races');
-        } else if (displayRace) {
-          const sessions = SESSION_KEYS[displayRace.weekendType];
-          if (sessions && sessions.length > 0) {
-            navigateTo('predict', displayRace.id, sessions[0]);
+          if (displayRace?.id) {
+            navigateTo('races', displayRace.id);
           } else {
-            navigateTo('predict', displayRace.id);
+            navigateTo('races');
+          }
+        } else if (displayRace) {
+          if (displayRace.status === 'active') {
+            const sessions = SESSION_KEYS[displayRace.weekendType];
+            if (sessions && sessions.length > 0) {
+              navigateTo('predict', displayRace.id, sessions[0]);
+            } else {
+              navigateTo('predict', displayRace.id);
+            }
+          } else {
+            navigateTo('races', displayRace.id);
           }
         } else {
           navigateTo('races');
