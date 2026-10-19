@@ -255,6 +255,39 @@ function calculateAccuracy(score, maxScore) {
   return Math.round((score / maxScore) * 100);
 }
 
+/**
+ * Calculate session wins for each user given an array of score records.
+ * For each session (grouped by raceId + session), the user(s) with the highest
+ * totalPoints (> 0) receives 1 session win.
+ * @param {Array<Object>} allScores - Array of score documents { userId, raceId, session, totalPoints }
+ * @returns {Record<string, number>} Map of userId -> session wins count
+ */
+function calculateSessionWins(allScores = []) {
+  const sessionWinners = {}; // `${raceId}_${session}` -> { maxPts: number, winners: Set<string> }
+
+  for (const s of allScores) {
+    if (!s || !s.raceId || !s.session || s.totalPoints === undefined) continue;
+    const pts = Number(s.totalPoints) || 0;
+    if (pts <= 0) continue;
+
+    const key = `${s.raceId}_${s.session}`;
+    if (!sessionWinners[key] || pts > sessionWinners[key].maxPts) {
+      sessionWinners[key] = { maxPts: pts, winners: new Set([s.userId]) };
+    } else if (pts === sessionWinners[key].maxPts) {
+      sessionWinners[key].winners.add(s.userId);
+    }
+  }
+
+  const userWins = {};
+  for (const key of Object.keys(sessionWinners)) {
+    for (const uid of sessionWinners[key].winners) {
+      userWins[uid] = (userWins[uid] || 0) + 1;
+    }
+  }
+
+  return userWins;
+}
+
 // --- Exports ---
 export {
   RACE_SPRINT_POINTS,
@@ -267,5 +300,6 @@ export {
   getMaxPoints,
   getSessionTypeLabel,
   sortByActualPosition,
-  calculateAccuracy
+  calculateAccuracy,
+  calculateSessionWins
 };

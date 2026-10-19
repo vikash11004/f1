@@ -89,6 +89,32 @@ export async function getCumulativeLeaderboardTillSession(targetRace, targetSess
       }
     }
 
+    // Precompute session winners for eligible sessions (player with highest points in session gets win)
+    const sessionWinners = {}; // `${raceId}_${session}` -> { maxPts: number, winners: Set<string> }
+    for (const es of eligibleSessions) {
+      const key = `${es.raceId}_${es.session}`;
+      sessionWinners[key] = { maxPts: 0, winners: new Set() };
+      for (const p of players) {
+        let score = null;
+        if (es.raceId === targetRace.id && es.session === targetSessionKey) {
+          score = currentSessionScoreMap[p.id] || allScores.find(s => s.userId === p.id && s.raceId === es.raceId && s.session === es.session);
+        } else {
+          score = allScores.find(s => s.userId === p.id && s.raceId === es.raceId && s.session === es.session);
+        }
+        if (score && score.totalPoints !== undefined) {
+          const pts = Number(score.totalPoints) || 0;
+          if (pts > 0) {
+            if (pts > sessionWinners[key].maxPts) {
+              sessionWinners[key].maxPts = pts;
+              sessionWinners[key].winners = new Set([p.id]);
+            } else if (pts === sessionWinners[key].maxPts) {
+              sessionWinners[key].winners.add(p.id);
+            }
+          }
+        }
+      }
+    }
+
     // Build player standings
     const standings = players.map(p => {
       let cumulativeTotal = 0;
@@ -132,6 +158,18 @@ export async function getCumulativeLeaderboardTillSession(targetRace, targetSess
         }
       }
 
+      // Calculate session wins
+      let winsCount = 0;
+      for (const es of eligibleSessions) {
+        const key = `${es.raceId}_${es.session}`;
+        if (sessionWinners[key]?.winners.has(p.id)) {
+          winsCount += 1;
+        }
+      }
+      if (winsCount === 0 && p.wins) {
+        winsCount = Number(p.wins) || 0;
+      }
+
       return {
         userId: p.id,
         displayName: p.displayName || 'Player',
@@ -139,6 +177,7 @@ export async function getCumulativeLeaderboardTillSession(targetRace, targetSess
         accuracyPoints: cumulativeAccuracy,
         bonusPoints: cumulativeBonus,
         currentSessionPoints: currentSessionPts,
+        sessionWins: winsCount,
         sessionsCount,
         email: p.email || ''
       };
@@ -448,7 +487,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         [`Cutoff: All verified sessions from Round 1 through Round ${race.round} [${sessionLabel}]`],
         [`Exported: ${new Date().toLocaleString()}`],
         [],
-        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Current Session Pts", "Sessions Scored", "Gap to Leader"]
+        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Current Session Pts", "Session Wins", "Sessions Scored", "Gap to Leader"]
       ];
 
       overallStandings.forEach((os) => {
@@ -459,6 +498,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
           os.accuracyPoints,
           os.bonusPoints,
           os.currentSessionPoints,
+          os.sessionWins || 0,
           os.sessionsCount,
           os.gap
         ]);
@@ -472,6 +512,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         { wch: 24 },
         { wch: 22 },
         { wch: 20 },
+        { wch: 16 },
         { wch: 16 },
         { wch: 16 }
       ];
@@ -570,7 +611,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         [`Cumulative Standings: Prior to Round ${race.round} (${raceName}) — ${sessionFullLabel}`],
         [`Exported: ${new Date().toLocaleString()}`],
         [],
-        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Sessions Scored", "Gap to Leader"]
+        ["Championship Rank", "Player Name", "Cumulative Points", "Cumulative Accuracy Pts", "Cumulative Bonus Pts", "Session Wins", "Sessions Scored", "Gap to Leader"]
       ];
 
       overallStandings.forEach((os) => {
@@ -580,6 +621,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
           os.totalPoints,
           os.accuracyPoints,
           os.bonusPoints,
+          os.sessionWins || 0,
           os.sessionsCount,
           os.gap
         ]);
@@ -592,6 +634,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
         { wch: 20 },
         { wch: 24 },
         { wch: 22 },
+        { wch: 16 },
         { wch: 16 },
         { wch: 16 }
       ];

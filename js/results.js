@@ -21,7 +21,7 @@ import {
   getTeamById
 } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG } from './drivers.js';
-import { calculateSessionScore, sortByActualPosition } from './scoring.js';
+import { calculateSessionScore, sortByActualPosition, calculateSessionWins } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
 import { showToast, navigateTo, formatRound } from './ui.js';
 import { escapeHTML } from './design.js';
@@ -146,7 +146,19 @@ async function processResults(raceId, session, officialOrder) {
       });
     }
 
-    // 4. Batch update user scores and save per-prediction scores
+    // 4. Batch update user scores, compute overall session wins, and save per-prediction scores
+    const allExistingScores = await getAllDocuments('scores');
+    const combinedScores = (allExistingScores || []).filter(s => !(s.raceId === raceId && s.session === session));
+    for (const ps of playerScores) {
+      combinedScores.push({
+        userId: ps.userId,
+        raceId,
+        session,
+        totalPoints: ps.totalPoints
+      });
+    }
+    const userWinsMap = calculateSessionWins(combinedScores);
+
     for (const ps of playerScores) {
       const oldScoreDoc = await getDocument('scores', `${ps.userId}_${raceId}_${session}`);
       let delta = ps.totalPoints;
@@ -161,7 +173,8 @@ async function processResults(raceId, session, officialOrder) {
       const userRef = getDocRef('users', ps.userId);
       batch.update(userRef, {
         seasonPoints: newSeasonPoints,
-        lastEventScore: ps.totalPoints
+        lastEventScore: ps.totalPoints,
+        wins: userWinsMap[ps.userId] || 0
       });
 
       const scoreRef = getDocRef('scores', `${ps.userId}_${raceId}_${session}`);
@@ -954,6 +967,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                     <th style="text-align: right;">Cumulative Accuracy</th>
                     <th style="text-align: right;">Cumulative Bonus</th>
                     <th style="text-align: right;">This Event</th>
+                    <th style="text-align: right;">Session Wins</th>
                     <th style="text-align: right;">Cumulative Total</th>
                     <th style="text-align: right;">Gap</th>
                   </tr>
@@ -975,6 +989,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                         <td style="text-align: right; color: var(--text-secondary);">${p.accuracyPoints}</td>
                         <td style="text-align: right; color: var(--text-secondary);">${p.bonusPoints}</td>
                         <td style="text-align: right; color: var(--accent); font-weight: 600;">+${p.currentSessionPoints}</td>
+                        <td style="text-align: right; font-weight: 600; color: var(--text-primary);">${p.sessionWins ?? 0}</td>
                         <td style="text-align: right;">
                           <span class="text-data" style="font-weight: 800; font-size: var(--text-base); color: var(--text-primary);">
                             ${p.totalPoints}
