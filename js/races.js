@@ -197,6 +197,11 @@ function renderRaceList(races) {
 
     const statusBadge = getStatusBadge(race.status);
 
+    const subCount = race.driverReplacements ? Object.keys(race.driverReplacements).length : 0;
+    const subBadge = subCount > 0
+      ? `<span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; font-size: 10px;" title="${subCount} Driver Substitution${subCount > 1 ? 's' : ''}">SUB${subCount > 1 ? ` (${subCount})` : ''}</span>`
+      : '';
+
     let adminActionBtn = '';
     if (admin) {
       if (race.status === 'upcoming') {
