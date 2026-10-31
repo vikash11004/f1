@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="F1 Prediction League — Predict the finishing order of every Grand Prix session, earn points, and compete on the season leaderboard.">
   <meta name="theme-color" content="#141516">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>F1 PREDICT — Formula 1 Prediction League</title>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; img-src 'self' data: https:; font-src 'self' data:; object-src 'none'; base-uri 'self';">
 
@@ -162,7 +165,7 @@
     }
 
     const connectionTimer = setTimeout(showConnectionError, 15000);
-    import('./js/app.js').then(() => clearTimeout(connectionTimer)).catch(error => {
+    import('./js/app.js?v=1.0.2').then(() => clearTimeout(connectionTimer)).catch(error => {
       clearTimeout(connectionTimer);
       console.error('Unable to start the application:', error);
       showConnectionError();

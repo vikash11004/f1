@@ -1,10 +1,10 @@
 // --- Import all modules ---
 import { initAuth, renderAuthScreen } from './auth.js';
-import { renderDashboard, cleanupDashboard } from './dashboard.js';
-import { renderRaces } from './races.js';
-import { renderPredictionBuilder, cleanupPredictions } from './predictions.js';
-import { renderResults } from './results.js';
-import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js';
+import { renderDashboard, cleanupDashboard } from './dashboard.js?v=1.0.2';
+import { renderRaces } from './races.js?v=1.0.2';
+import { renderPredictionBuilder, cleanupPredictions } from './predictions.js?v=1.0.2';
+import { renderResults } from './results.js?v=1.0.2';
+import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js?v=1.0.2';
 import { registerPage, initRouter, initNav } from './ui.js';
 
 // --- Register page renderers ---

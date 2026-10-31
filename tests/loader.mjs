@@ -1,7 +1,7 @@
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier.endsWith('firebase.js') && !specifier.includes('fixtures')) {
+  const clean = specifier.split('?')[0];
+  if (clean.endsWith('firebase.js') && !clean.includes('fixtures')) {
     return nextResolve(new URL('./fixtures/firebase.js', import.meta.url).href, context);
   }
   return nextResolve(specifier, context);
 }
-
