@@ -20,7 +20,8 @@ import {
   SESSION_FULL_LABELS,
   getTeamById
 } from './seed.js';
-import { getDriver, getTeamColor, renderEmptyStateSVG } from './drivers.js';
+import { getDriver, getTeamColor, renderEmptyStateSVG, setRaceDriverContext, clearRaceDriverContext, getRaceReplacements } from './drivers.js';
+import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
 import { calculateSessionScore, sortByActualPosition, calculateSessionWins } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
 import { showToast, navigateTo, formatRound } from './ui.js';
@@ -222,6 +223,9 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
     getAllDocuments('users')
   ]);
   const raceDoc = allRaces.find(r => r.id === raceId);
+  if (raceDoc) {
+    setRaceDriverContext(raceDoc);
+  }
   allRaces.sort((a, b) => a.round - b.round);
   const currentRaceIndex = allRaces.findIndex(r => r.id === raceId);
   const prevRace = currentRaceIndex > 0 ? allRaces[currentRaceIndex - 1] : null;
@@ -286,6 +290,16 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         <span class="badge" style="background: ${hasResults ? 'var(--status-completed)' : 'var(--accent)'}; color: white; border: none;">
           ${hasResults ? 'RESULTS CONFIRMED' : 'AWAITING CLASSIFICATION'}
         </span>
+        ${raceDoc?.driverReplacements && Object.keys(raceDoc.driverReplacements).length > 0 ? `
+          <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; border: none; font-size: 10px;" title="Active substitutions: ${escapeHTML(Object.values(raceDoc.driverReplacements).map(r => `${r.name} subbing for original driver`).join(', '))}">
+            ⚠️ ${Object.keys(raceDoc.driverReplacements).length} DRIVER SUB ACTIVE
+          </span>
+        ` : ''}
+        ${isAdmin() ? `
+          <button class="btn btn-sm btn-ghost" id="btn-results-replace-driver" style="font-size: var(--text-xs); padding: 4px 8px; color: var(--accent); display: inline-flex; align-items: center; gap: 4px;">
+            🔄 Driver Lineup
+          </button>
+        ` : ''}
       </div>
       <p class="page-subtitle" style="margin-top: var(--space-2);">
         ${hasResults ? `${playerScores.length} players scored · Official race classification confirmed` : `${playerScores.length} player prediction(s) submitted`}
@@ -1021,6 +1035,21 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
     btn.addEventListener('click', () => {
       currentView = btn.dataset.view;
       renderView();
+    });
+  });
+
+  // Admin Driver Lineup / Replacement trigger
+  document.getElementById('btn-results-replace-driver')?.addEventListener('click', () => {
+    openDriverReplacementModal({
+      race: raceDoc,
+      onSaved: async (updatedRace) => {
+        setRaceDriverContext(updatedRace);
+        await renderResultsBreakdown(raceId, session);
+      },
+      onRestored: async (updatedRace) => {
+        setRaceDriverContext(updatedRace);
+        await renderResultsBreakdown(raceId, session);
+      }
     });
   });
 

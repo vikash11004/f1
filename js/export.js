@@ -17,7 +17,7 @@ import {
   SESSION_FULL_LABELS,
   getTeamById
 } from './seed.js';
-import { getDriver } from './drivers.js';
+import { getDriver, setRaceDriverContext, clearRaceDriverContext } from './drivers.js';
 import { calculateSessionScore } from './scoring.js';
 import { showToast, navigateTo } from './ui.js';
 
@@ -227,6 +227,7 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
       showToast('Race data not found for export.', 'error');
       return;
     }
+    setRaceDriverContext(race);
 
     const raceName = race.name || `Round ${race.round}`;
     const sessionLabel = SESSION_LABELS[sessionKey] || sessionKey.toUpperCase();
@@ -656,6 +657,8 @@ export async function exportSessionToExcel(raceOrId, sessionKey) {
   } catch (err) {
     console.error('[Export] Error during exportSessionToExcel:', err);
     showToast(`Excel export failed: ${err.message || 'Unknown error'}`, 'error');
+  } finally {
+    clearRaceDriverContext();
   }
 }
 

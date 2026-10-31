@@ -152,8 +152,28 @@ export const listenToCollection = (c, fn) => {
   return () => {};
 };
 export const listenToDocument = () => () => {};
-export const createBatch = () => ({ set() {}, commit: async () => {} });
-export const getDocRef = () => ({});
+export const createBatch = () => {
+  const operations = [];
+  return {
+    set(ref, d) {
+      operations.push({ op: 'set', ref, d });
+    },
+    update(ref, d) {
+      operations.push({ op: 'update', ref, d });
+    },
+    delete(ref) {
+      operations.push({ op: 'delete', ref });
+    },
+    commit: async () => {
+      for (const item of operations) {
+        if (item.ref?.coll && item.ref?.id) {
+          await updateDocument(item.ref.coll, item.ref.id, item.d);
+        }
+      }
+    }
+  };
+};
+export const getDocRef = (coll, id) => ({ coll, id });
 export const serverTimestamp = () => Date.now();
 export const increment = (n) => n;
 export const doc = () => ({}),

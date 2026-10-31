@@ -6,6 +6,7 @@
     "playwright": "1.58.2"
   },
   "scripts": {
-    "test:ui": "node tests/ui-smoke.cjs"
+    "test:ui": "node tests/ui-smoke.cjs",
+    "test:replacement": "node --loader ./tests/loader.mjs tests/driver-replacement.test.cjs"
   }
 }

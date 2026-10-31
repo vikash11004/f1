@@ -15,7 +15,8 @@ import {
   serverTimestamp
 } from './firebase.js';
 import { SESSION_KEYS, SESSION_LABELS } from './seed.js';
-import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
+import { createTelemetrySVG, renderEmptyStateSVG, getRaceReplacements, getDriver } from './drivers.js';
+import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
 import {
   navigateTo,
   showToast,
@@ -243,7 +244,7 @@ function renderRaceList(races) {
           <span class="race-round"><small>ROUND</small><strong>${String(race.round).padStart(2, '0')}</strong></span>
           <span class="race-flag">${escapeHTML(race.countryFlag)}</span>
           <div class="race-row-info"><h3>${escapeHTML(race.name)}</h3><p>${escapeHTML(race.circuit)}${race.startDate ? ' · ' + escapeHTML(race.startDate) : ''}</p></div>
-          <div class="race-row-meta">${sprintBadge}${statusBadge}${adminActionBtn}</div>
+          <div class="race-row-meta">${subBadge}${sprintBadge}${statusBadge}${adminActionBtn}</div>
           ${icon('arrow', 'race-row-arrow')}
         </div>
       </div>`;
@@ -348,6 +349,8 @@ function getStatusBadge(status) {
 function openRacePanel(race) {
   const admin = isAdmin();
   const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+  const replacementsList = getRaceReplacements(race);
+  const hasReplacements = replacementsList.length > 0;
 
   // Status transitions (forward-only)
   const nextStatus = {
@@ -442,6 +445,48 @@ function openRacePanel(race) {
               </div>
             `;
           }).join('')}
+        </div>
+      </div>
+
+      <div style="margin-bottom: var(--space-6);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="text-label">Driver Lineup & Substitutions</span>
+          ${admin ? `
+            <button class="btn btn-sm btn-ghost" id="btn-manage-driver-replacements" style="font-size: var(--text-xs); padding: 2px 8px; color: var(--accent);">
+              🔄 ${hasReplacements ? 'Manage Substitutions' : 'Replace Driver'}
+            </button>
+          ` : ''}
+        </div>
+        <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
+          ${hasReplacements ? replacementsList.map(item => `
+            <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <strong style="color: var(--text-primary); font-size: var(--text-sm);">${escapeHTML(item.replacement.name)}</strong>
+                  <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; font-size: 9px; padding: 1px 5px;">SUB</span>
+                  <span style="font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted);">${escapeHTML(item.replacement.code)} #${item.replacement.number}</span>
+                  <span class="badge" style="font-size: 9px; padding: 1px 5px;">${item.replacement.scope === 'rest_of_season' ? 'Rest of Season' : (item.replacement.scope === 'all_season' ? 'All Season' : 'Weekend Only')}</span>
+                </div>
+                <p style="font-size: var(--text-xs); color: var(--text-muted); margin: 2px 0 0;">
+                  Replaces ${escapeHTML(item.originalDriver?.name || item.driverId)} · ${escapeHTML(item.team?.name || '')}
+                  ${item.replacement.notes ? ` · <em>${escapeHTML(item.replacement.notes)}</em>` : ''}
+                </p>
+              </div>
+              ${admin ? `
+                <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                  <button class="btn btn-sm btn-ghost btn-edit-replacement" data-driver-id="${item.driverId}" title="Edit replacement" style="padding: 4px 6px; font-size: 11px;">✏️</button>
+                  <button class="btn btn-sm btn-ghost btn-restore-driver" data-driver-id="${item.driverId}" title="Restore original driver" style="padding: 4px 6px; font-size: 11px; color: var(--accent);">↺</button>
+                </div>
+              ` : ''}
+            </div>
+          `).join('') : `
+            <div style="background: var(--glass-bg); border: 1px dashed var(--glass-border); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+              <span class="text-body-sm text-muted">Standard 2026 driver grid (22 drivers)</span>
+              ${admin ? `
+                <button class="btn btn-sm btn-ghost" id="btn-quick-add-sub" style="font-size: var(--text-xs); padding: 2px 8px; color: var(--accent);">+ Sub Driver</button>
+              ` : ''}
+            </div>
+          `}
         </div>
       </div>
 
@@ -650,6 +695,54 @@ function openRacePanel(race) {
       exportSessionToExcel(race, s);
     });
   });
+
+  // Admin Driver replacement triggers
+  if (admin) {
+    const handleOpenReplace = (preselectedDriverId = null) => {
+      openDriverReplacementModal({
+        race,
+        preselectedDriverId,
+        onSaved: (updatedRace) => {
+          const idx = _cachedRaces.findIndex(r => r.id === updatedRace.id);
+          if (idx !== -1) _cachedRaces[idx] = updatedRace;
+          openRacePanel(updatedRace);
+          renderRaces();
+        },
+        onRestored: (updatedRace) => {
+          const idx = _cachedRaces.findIndex(r => r.id === updatedRace.id);
+          if (idx !== -1) _cachedRaces[idx] = updatedRace;
+          openRacePanel(updatedRace);
+          renderRaces();
+        }
+      });
+    };
+
+    document.getElementById('btn-manage-driver-replacements')?.addEventListener('click', () => handleOpenReplace());
+    document.getElementById('btn-quick-add-sub')?.addEventListener('click', () => handleOpenReplace());
+
+    document.querySelectorAll('.btn-edit-replacement').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleOpenReplace(b.dataset.driverId);
+      });
+    });
+
+    document.querySelectorAll('.btn-restore-driver').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openRestoreDriverModal({
+          race,
+          driverId: b.dataset.driverId,
+          onRestored: (updatedRace) => {
+            const idx = _cachedRaces.findIndex(r => r.id === updatedRace.id);
+            if (idx !== -1) _cachedRaces[idx] = updatedRace;
+            openRacePanel(updatedRace);
+            renderRaces();
+          }
+        });
+      });
+    });
+  }
 
   // Delete race
   document.getElementById('btn-delete-race')?.addEventListener('click', () => {

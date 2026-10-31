@@ -1,9 +1,11 @@
 // ============================================
 // F1 PREDICTION LEAGUE — DRIVERS
 // Driver card component · Team color helpers
+// Dynamic driver substitution support
 // ============================================
 
 import { TEAMS_2026, DRIVERS_2026, getTeamById } from './seed.js';
+import { escapeHTML } from './design.js';
 
 // --- Team color map (cached) ---
 const teamColorMap = {};
@@ -17,6 +19,51 @@ for (const driver of DRIVERS_2026) {
   driverMap[driver.id] = driver;
 }
 
+// --- Active race context for dynamic driver substitutions ---
+let currentRaceContext = null;
+
+/**
+ * Set the active race context for driver lookups
+ * When set, getDriver and getAllDriversSorted will apply that race's driverReplacements
+ * @param {Object|null} race 
+ */
+function setRaceDriverContext(race) {
+  currentRaceContext = race;
+}
+
+/**
+ * Get current active race context
+ * @returns {Object|null}
+ */
+function getRaceDriverContext() {
+  return currentRaceContext;
+}
+
+/**
+ * Clear the active race context
+ */
+function clearRaceDriverContext() {
+  currentRaceContext = null;
+}
+
+/**
+ * Get active replacements for a race
+ * @param {Object|null} [race=currentRaceContext]
+ * @returns {Array}
+ */
+function getRaceReplacements(race = currentRaceContext) {
+  if (!race?.driverReplacements) return [];
+  return Object.entries(race.driverReplacements).map(([driverId, rep]) => {
+    const base = driverMap[driverId];
+    return {
+      driverId,
+      originalDriver: base,
+      replacement: rep,
+      team: base ? getTeamById(base.team) : null
+    };
+  });
+}
+
 /**
  * Get team color hex by team ID
  * @param {string} teamId 
@@ -27,20 +74,46 @@ function getTeamColor(teamId) {
 }
 
 /**
- * Get driver data from cache
+ * Get driver data from cache with optional race replacements applied
  * @param {string} driverId 
+ * @param {Object|null} [race=currentRaceContext]
  * @returns {Object|undefined}
  */
-function getDriver(driverId) {
-  return driverMap[driverId];
+function getDriver(driverId, race = currentRaceContext) {
+  const baseDriver = driverMap[driverId];
+  if (!baseDriver) return undefined;
+
+  const replacements = race?.driverReplacements;
+  if (replacements && replacements[driverId]) {
+    const rep = replacements[driverId];
+    return {
+      ...baseDriver,
+      name: rep.name || baseDriver.name,
+      code: (rep.code || baseDriver.code).toUpperCase(),
+      number: rep.number !== undefined ? Number(rep.number) : baseDriver.number,
+      nationality: rep.nationality || baseDriver.nationality,
+      flag: rep.flag || baseDriver.flag,
+      isReplacement: true,
+      replacementScope: rep.scope || 'weekend',
+      replacementNotes: rep.notes || '',
+      originalDriverId: baseDriver.id,
+      originalName: baseDriver.name,
+      originalCode: baseDriver.code,
+      originalNumber: baseDriver.number,
+      originalFlag: baseDriver.flag
+    };
+  }
+
+  return baseDriver;
 }
 
 /**
- * Get all drivers sorted by team
+ * Get all drivers sorted by team with optional race replacements applied
+ * @param {Object|null} [race=currentRaceContext]
  * @returns {Array}
  */
-function getAllDriversSorted() {
-  return [...DRIVERS_2026].sort((a, b) => {
+function getAllDriversSorted(race = currentRaceContext) {
+  return DRIVERS_2026.map(d => getDriver(d.id, race)).sort((a, b) => {
     const teamOrder = TEAMS_2026.findIndex(t => t.id === a.team) - TEAMS_2026.findIndex(t => t.id === b.team);
     if (teamOrder !== 0) return teamOrder;
     return a.number - b.number;
@@ -53,7 +126,8 @@ function getAllDriversSorted() {
  * @returns {string} two-letter initials
  */
 function getDriverInitials(name) {
-  const parts = name.split(' ');
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
@@ -109,18 +183,27 @@ function renderDriverCard(driver, options = {}) {
   const teamColor = getTeamColor(driver.team);
   const team = getTeamById(driver.team);
   const initials = getDriverInitials(driver.name);
+  const isSub = Boolean(driver.isReplacement);
 
   const positionHTML = position !== null
     ? `<span class="order-slot-position ${position <= 3 ? 'top3' : ''}">${'P' + position}</span>`
     : '';
 
+  const subBadge = isSub
+    ? `<span class="driver-card-sub" title="Substituting for ${escapeHTML(driver.originalName || 'original driver')}">SUB</span>`
+    : '';
+
+  const ariaLabel = isSub
+    ? `${escapeHTML(driver.name)} (substituting for ${escapeHTML(driver.originalName)}), ${driver.code}, number ${driver.number}`
+    : `${escapeHTML(driver.name)}, ${driver.code}, number ${driver.number}`;
+
   return `
-    <div class="driver-card ${extraClass}" 
+    <div class="driver-card ${extraClass} ${isSub ? 'is-substitute' : ''}" 
          data-driver-id="${driver.id}" 
          data-team="${driver.team}"
          tabindex="0"
          role="button"
-         aria-label="${driver.name}, ${driver.code}, number ${driver.number}">
+         aria-label="${ariaLabel}">
       <div class="driver-card-color-bar" style="background-color: ${teamColor}"></div>
       ${positionHTML}
       <div class="driver-card-avatar" style="background-color: ${teamColor}20; color: ${teamColor}">
@@ -128,9 +211,12 @@ function renderDriverCard(driver, options = {}) {
       </div>
       <div class="driver-card-number">${driver.number}</div>
       <div class="driver-card-info">
-        <span class="driver-card-code">${driver.code}</span>
-        <span class="driver-card-name">${driver.name}</span>
-        ${showTeam && team ? `<span class="driver-card-team">${team.name}</span>` : ''}
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <span class="driver-card-code">${driver.code}</span>
+          ${subBadge}
+        </div>
+        <span class="driver-card-name" title="${escapeHTML(driver.name)}${isSub ? ` (Sub for ${escapeHTML(driver.originalName)})` : ''}">${escapeHTML(driver.name)}</span>
+        ${showTeam && team ? `<span class="driver-card-team">${escapeHTML(team.name)}</span>` : ''}
       </div>
     </div>
   `;
@@ -158,7 +244,7 @@ function renderEmptySlot(position) {
  */
 function renderFilledSlot(position, driver) {
   return `
-    <div class="order-slot filled" data-position="${position}" data-driver-id="${driver.id}" tabindex="0" role="listitem" aria-label="Position ${position}, ${driver.name}">
+    <div class="order-slot filled" data-position="${position}" data-driver-id="${driver.id}" tabindex="0" role="listitem" aria-label="Position ${position}, ${escapeHTML(driver.name)}">
       ${renderDriverCard(driver, { position, showTeam: true })}
     </div>
   `;
@@ -218,6 +304,10 @@ export {
   renderFilledSlot,
   renderEmptyStateSVG,
   renderDriverSkeletons,
+  setRaceDriverContext,
+  getRaceDriverContext,
+  clearRaceDriverContext,
+  getRaceReplacements,
   teamColorMap,
   driverMap
 };

@@ -28,8 +28,12 @@ import {
   renderDriverCard,
   renderEmptySlot,
   renderEmptyStateSVG,
-  renderDriverSkeletons
+  renderDriverSkeletons,
+  setRaceDriverContext,
+  clearRaceDriverContext,
+  getRaceReplacements
 } from './drivers.js';
+import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
 import {
   navigateTo,
   showToast,
@@ -101,6 +105,9 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
   try {
     // Load race data
     currentRace = await getDocument('races', raceId);
+    if (currentRace) {
+      setRaceDriverContext(currentRace);
+    }
     if (!currentRace) {
       page.innerHTML = `
         <div class="empty-state">
@@ -276,6 +283,16 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
         <span class="badge-round text-display">${formatRound(currentRace.round)}</span>
         <h1 class="page-title text-display prediction-title">${currentRace.name}</h1>
         ${sprintBadge}
+        ${currentRace?.driverReplacements && Object.keys(currentRace.driverReplacements).length > 0 ? `
+          <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; border: none; font-size: 10px;" title="${Object.values(currentRace.driverReplacements).map(r => `${r.name} subbing for original driver`).join(', ')}">
+            ⚠️ ${Object.keys(currentRace.driverReplacements).length} DRIVER SUB ACTIVE
+          </span>
+        ` : ''}
+        ${isAdmin() ? `
+          <button class="btn btn-secondary btn-sm" id="btn-builder-replace-driver" style="display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-xs); padding: 4px 10px; margin-left: var(--space-2);">
+            🔄 Replace Driver
+          </button>
+        ` : ''}
         ${isCurrentSessionVoided 
           ? '<span class="badge" style="background: #e63946; color: white; border: none;">SESSION CANCELLED / VOIDED</span>'
           : (isResultsMode 
@@ -428,6 +445,23 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
     bindOrderEvents();
     bindConfirmEvents();
   }
+
+  // Admin Driver replacement trigger
+  getPage().querySelector('#btn-builder-replace-driver')?.addEventListener('click', () => {
+    openDriverReplacementModal({
+      race: currentRace,
+      onSaved: async (updatedRace) => {
+        currentRace = updatedRace;
+        setRaceDriverContext(updatedRace);
+        await renderPredictionBuilder(updatedRace.id, currentSession, isResultsMode, isEditingExistingResults);
+      },
+      onRestored: async (updatedRace) => {
+        currentRace = updatedRace;
+        setRaceDriverContext(updatedRace);
+        await renderPredictionBuilder(updatedRace.id, currentSession, isResultsMode, isEditingExistingResults);
+      }
+    });
+  });
 
   // Back button
   getPage().querySelector('#btn-back-predict')?.addEventListener('click', () => {
@@ -1110,6 +1144,7 @@ async function handleConfirmResults() {
  */
 function cleanupPredictions() {
   clearTimeout(saveTimeout);
+  clearRaceDriverContext();
   currentRace = null;
   currentSession = null;
   orderedDrivers = [];
