@@ -300,8 +300,19 @@ function calculateCumulativePoints(allScores = []) {
     if (!userCumulative[s.userId]) {
       userCumulative[s.userId] = { accuracyPoints: 0, bonusPoints: 0 };
     }
-    userCumulative[s.userId].accuracyPoints += Number(s.accuracyPoints || 0);
-    userCumulative[s.userId].bonusPoints += Number(s.bonusPoints || 0);
+    const acc = Number(s.accuracyPoints);
+    const bon = Number(s.bonusPoints);
+    const tot = Number(s.totalPoints);
+
+    if (Number.isFinite(acc)) {
+      userCumulative[s.userId].accuracyPoints += acc;
+    } else if (Number.isFinite(tot)) {
+      userCumulative[s.userId].accuracyPoints += tot - (Number.isFinite(bon) ? bon : 0);
+    }
+
+    if (Number.isFinite(bon)) {
+      userCumulative[s.userId].bonusPoints += bon;
+    }
   }
   return userCumulative;
 }

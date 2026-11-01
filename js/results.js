@@ -22,7 +22,7 @@ import {
 } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG, setRaceDriverContext, clearRaceDriverContext, getRaceReplacements } from './drivers.js';
 import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
-import { calculateSessionScore, sortByActualPosition, calculateSessionWins } from './scoring.js';
+import { calculateSessionScore, sortByActualPosition, calculateSessionWins, calculateCumulativePoints } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
 import { showToast, navigateTo, formatRound } from './ui.js';
 import { escapeHTML } from './design.js';
@@ -155,10 +155,13 @@ async function processResults(raceId, session, officialOrder) {
         userId: ps.userId,
         raceId,
         session,
-        totalPoints: ps.totalPoints
+        totalPoints: ps.totalPoints,
+        accuracyPoints: ps.accuracyPoints,
+        bonusPoints: ps.bonusPoints
       });
     }
     const userWinsMap = calculateSessionWins(combinedScores);
+    const cumPointsMap = calculateCumulativePoints(combinedScores);
 
     for (const ps of playerScores) {
       const oldScoreDoc = await getDocument('scores', `${ps.userId}_${raceId}_${session}`);
@@ -175,7 +178,9 @@ async function processResults(raceId, session, officialOrder) {
       batch.update(userRef, {
         seasonPoints: newSeasonPoints,
         lastEventScore: ps.totalPoints,
-        wins: userWinsMap[ps.userId] || 0
+        wins: userWinsMap[ps.userId] || 0,
+        cumulativeAccuracyPoints: cumPointsMap[ps.userId]?.accuracyPoints || 0,
+        cumulativeBonusPoints: cumPointsMap[ps.userId]?.bonusPoints || 0
       });
 
       const scoreRef = getDocRef('scores', `${ps.userId}_${raceId}_${session}`);

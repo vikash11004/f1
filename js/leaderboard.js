@@ -40,7 +40,23 @@ async function renderLeaderboard() {
     </div>
   `;
 
-  // Set up real-time listener for users
+  // 1. Initial immediate fetch so Standings display accuracy and bonus points without delay
+  try {
+    const [initialUsers, initialScores] = await Promise.all([
+      getAllDocuments('users'),
+      getAllDocuments('scores')
+    ]);
+    if (initialUsers && initialUsers.length > 0) {
+      currentUsers = initialUsers;
+      sessionWinsMap = calculateSessionWins(initialScores || []);
+      cumulativePointsMap = calculateCumulativePoints(initialScores || []);
+      renderLeaderboardTable(currentUsers, sessionWinsMap, cumulativePointsMap);
+    }
+  } catch (err) {
+    console.warn('[Leaderboard] Initial fetch fallback:', err);
+  }
+
+  // 2. Set up real-time listener for users
   unsubscribeUsers = listenToCollection('users', (users) => {
     currentUsers = users || [];
     renderLeaderboardTable(currentUsers, sessionWinsMap, cumulativePointsMap);
@@ -49,12 +65,13 @@ async function renderLeaderboard() {
     orderDirection: 'desc'
   });
 
-  // Set up real-time listener for session scores to calculate dynamic session wins
+  // 3. Set up real-time listener for session scores to calculate dynamic session wins, accuracy & bonus points
   try {
     unsubscribeScores = listenToCollection('scores', (scores) => {
       sessionWinsMap = calculateSessionWins(scores || []);
+      cumulativePointsMap = calculateCumulativePoints(scores || []);
       if (currentUsers.length > 0) {
-        renderLeaderboardTable(currentUsers, sessionWinsMap);
+        renderLeaderboardTable(currentUsers, sessionWinsMap, cumulativePointsMap);
       }
     });
   } catch (err) {
@@ -130,8 +147,17 @@ function renderLeaderboardTable(users, winsMap = {}, cumulativePoints = {}) {
 
             // Session wins (computed from scores with fallback to user.wins)
             const userWins = winsMap[user.id] !== undefined ? winsMap[user.id] : (user.wins || 0);
-            const userAcc = cumulativePoints[user.id]?.accuracyPoints ?? (user.cumulativeAccuracyPoints || user.accuracyPoints || 0);
-            const userBonus = cumulativePoints[user.id]?.bonusPoints ?? (user.cumulativeBonusPoints || user.bonusPoints || 0);
+            const cp = cumulativePoints[user.id];
+            let userAcc = cp?.accuracyPoints ?? user.cumulativeAccuracyPoints ?? user.accuracyPoints;
+            let userBonus = cp?.bonusPoints ?? user.cumulativeBonusPoints ?? user.bonusPoints;
+
+            userAcc = Number(userAcc) || 0;
+            userBonus = Number(userBonus) || 0;
+
+            // Fallback: If both are 0 but user has seasonPoints > 0, reflect seasonPoints in accuracy
+            if (userAcc === 0 && userBonus === 0 && (user.seasonPoints || 0) > 0) {
+              userAcc = Number(user.seasonPoints) || 0;
+            }
 
             return `
               <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${escapeHTML(user.id)}">
