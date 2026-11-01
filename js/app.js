@@ -1,14 +1,30 @@
 // --- Import all modules ---
 import { initAuth, renderAuthScreen } from './auth.js';
-import { renderDashboard, cleanupDashboard } from './dashboard.js?v=1.0.8';
-import { renderRaces } from './races.js?v=1.0.8';
-import { renderPredictionBuilder, cleanupPredictions } from './predictions.js?v=1.0.8';
-import { renderResults } from './results.js?v=1.0.8';
-import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js?v=1.0.8';
+import { renderDashboard, cleanupDashboard } from './dashboard.js?v=1.0.9';
+import { renderRaces } from './races.js?v=1.0.9';
+import { renderPredictionBuilder, cleanupPredictions } from './predictions.js?v=1.0.9';
+import { renderResults } from './results.js?v=1.0.9';
+import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js?v=1.0.9';
 import { registerPage, initRouter, initNav } from './ui.js';
 
 // --- Register page renderers ---
 registerPage('auth', renderAuthScreen);
+
+// Sync team overrides dynamically from Firestore
+(async () => {
+  try {
+    const { getAllDocuments, listenToCollection } = await import('./firebase.js');
+    const { updateTeamsCache } = await import('./seed.js?v=1.0.9');
+    getAllDocuments('teams').then(teams => {
+      if (teams?.length) updateTeamsCache(teams);
+    }).catch(() => {});
+    listenToCollection('teams', (teams) => {
+      if (teams?.length) updateTeamsCache(teams);
+    });
+  } catch (e) {
+    console.warn('[App] Dynamic teams sync failed:', e);
+  }
+})();
 registerPage('dashboard', renderDashboard);
 registerPage('races', renderRaces);
 registerPage('predict', (raceId, session) => {

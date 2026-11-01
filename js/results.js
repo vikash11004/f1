@@ -18,7 +18,8 @@ import {
   SESSION_KEYS,
   SESSION_LABELS,
   SESSION_FULL_LABELS,
-  getTeamById
+  getTeamById,
+  updateTeamsCache
 } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG, setRaceDriverContext, clearRaceDriverContext, getRaceReplacements } from './drivers.js';
 import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
@@ -222,11 +223,15 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   if (!page) return;
 
   // Load race data for session tabs and weekend selector
-  const [allRaces, allResults, users] = await Promise.all([
+  const [allRaces, allResults, users, firestoreTeams] = await Promise.all([
     getAllDocuments('races'),
     getAllDocuments('results'),
-    getAllDocuments('users')
+    getAllDocuments('users'),
+    getAllDocuments('teams').catch(() => [])
   ]);
+  if (firestoreTeams && firestoreTeams.length > 0) {
+    updateTeamsCache(firestoreTeams);
+  }
   const raceDoc = allRaces.find(r => r.id === raceId);
   if (raceDoc) {
     setRaceDriverContext(raceDoc);

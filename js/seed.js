@@ -14,10 +14,10 @@ import {
 const TEAMS_2026 = [
   { id: "mclaren",       name: "McLaren",         color: "#FF8000", engine: "Mercedes" },
   { id: "mercedes",      name: "Mercedes",         color: "#00D2BE", engine: "Mercedes" },
-  { id: "red_bull",      name: "Red Bull Racing",  color: "#3671C6", engine: "Honda RBPT" },
+  { id: "red_bull",      name: "Red Bull Racing",  color: "#3671C6", engine: "RBPT Ford" },
   { id: "ferrari",       name: "Ferrari",          color: "#E8002D", engine: "Ferrari" },
   { id: "williams",      name: "Williams",         color: "#005AFF", engine: "Mercedes" },
-  { id: "racing_bulls",  name: "Racing Bulls",     color: "#6692FF", engine: "Honda RBPT" },
+  { id: "racing_bulls",  name: "Racing Bulls",     color: "#6692FF", engine: "RBPT Ford" },
   { id: "aston_martin",  name: "Aston Martin",     color: "#358C75", engine: "Honda" },
   { id: "haas",          name: "Haas",             color: "#B6BABD", engine: "Ferrari" },
   { id: "audi",          name: "Audi",             color: "#B0B0B0", engine: "Audi" },
@@ -125,8 +125,37 @@ function getTeamColorMap() {
  * @param {string} teamId 
  * @returns {Object|undefined}
  */
+// Dynamic runtime teams cache (allows Firestore overrides to take effect immediately)
+let dynamicTeams = TEAMS_2026.map(t => ({ ...t }));
+
+/**
+ * Update local teams cache from Firestore
+ * @param {Array<Object>} firestoreTeams 
+ */
+function updateTeamsCache(firestoreTeams) {
+  if (!Array.isArray(firestoreTeams) || firestoreTeams.length === 0) return;
+  for (const ft of firestoreTeams) {
+    const targetKey = (ft.id || ft.teamId || '').toLowerCase().trim();
+    const targetName = (ft.name || '').toLowerCase().trim();
+    const idx = dynamicTeams.findIndex(t =>
+      (targetKey && t.id.toLowerCase() === targetKey) ||
+      (targetName && t.name.toLowerCase() === targetName)
+    );
+    if (idx !== -1) {
+      dynamicTeams[idx] = { ...dynamicTeams[idx], ...ft };
+    } else if (ft.id) {
+      dynamicTeams.push(ft);
+    }
+  }
+}
+
+/**
+ * Get team data by ID (checks dynamic cache first, falls back to TEAMS_2026)
+ * @param {string} teamId 
+ * @returns {Object|undefined}
+ */
 function getTeamById(teamId) {
-  return TEAMS_2026.find(t => t.id === teamId);
+  return dynamicTeams.find(t => t.id === teamId) || TEAMS_2026.find(t => t.id === teamId);
 }
 
 /**
@@ -222,6 +251,7 @@ export {
   SESSION_FULL_LABELS,
   getTeamColorMap,
   getTeamById,
+  updateTeamsCache,
   getDriverById,
   seedData
 };
