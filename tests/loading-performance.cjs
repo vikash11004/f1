@@ -17,7 +17,14 @@ async function run() {
         await new Promise(resolve => setTimeout(resolve, 80));
         read.end = performance.now();
         return (data[c] || []).find(d => d.id === id) || null;
-      };`);
+      };`)
+    .replace('export const getAllDocuments = async (c) => data[c] || [];', `export const getAllDocuments = async c => {
+      const read = { c, start: performance.now() };
+      window.__collections.push(read);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      read.end = performance.now();
+      return data[c] || [];
+    };`);
   assert.match(instrumented, /window.__reads.push/);
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url, 'http://localhost').pathname;
@@ -43,6 +50,7 @@ async function run() {
       window.__signedIn = true;
       window.__writes = [];
       window.__reads = [];
+      window.__collections = [];
     });
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
@@ -59,7 +67,7 @@ async function run() {
       const { renderResults } = await import('/js/results.js');
       const { renderPredictionBuilder } = await import('/js/predictions.js');
       const order = DRIVERS_2026.map(d => d.id);
-      await db.setDocument('results', 'r2_quali', { raceId: 'r2', session: 'quali', order, calculatedAt: 1 });
+      await db.setDocument('results', 'r2_quali', { raceId: 'r2', session: 'quali', order: [...order].reverse(), calculatedAt: 1 });
       for (const userId of ['u1', 'u2', 'u3', 'u4']) {
         await db.setDocument('predictions', `${userId}_r2_quali`, { userId, raceId: 'r2', session: 'quali', order, lockedAt: 1 });
       }
@@ -67,6 +75,10 @@ async function run() {
       await renderResults('r2', 'quali');
       const results = [...window.__reads];
       const resultText = document.querySelector('#results-page').textContent;
+      const { getDriver } = await import('/js/drivers.js');
+      const comparison = document.querySelector('#results-grid tbody td').textContent;
+      const expectedPick = getDriver(order[0]).code;
+      const expectedActual = getDriver(order.at(-1)).code;
       window.__reads = [];
       await renderPredictionBuilder('r2', 'quali');
       const builder = [...window.__reads];
@@ -76,7 +88,7 @@ async function run() {
       await renderPredictionBuilder('r2', 'quali', true, true);
       const admin = [...window.__reads];
       const editable = !!document.querySelector('#results-page .order-slot.draggable');
-      return { results, builder, admin, resultText, readOnly, editable };
+      return { results, builder, admin, resultText, readOnly, editable, comparison, expectedPick, expectedActual };
     });
     const overlap = reads => {
       assert.ok(reads.length > 1);
@@ -93,6 +105,38 @@ async function run() {
     assert.equal(adminResults.length, new Set(adminResults.map(r => r.id)).size);
     assert.equal(report.readOnly, true);
     assert.equal(report.editable, true);
+    assert.ok(report.comparison.includes(report.expectedPick));
+    assert.ok(report.comparison.includes(`Actual P1: ${report.expectedActual}`));
+
+    // Inspect the results at desktop and narrow phone sizes, using the real router.
+    await page.evaluate(() => { window.__isAdmin = false; location.hash = '#results/r2/quali'; });
+    await page.locator('#results-grid .result-actual-driver').first().waitFor();
+    await page.evaluate(() => { window.__collections = []; });
+    await page.locator('#view-tab-overall').click();
+    await page.locator('#view-tab-official').click();
+    await page.waitForFunction(() => window.__collections.some(r => r.c === 'scores' && r.end));
+    assert.equal(await page.locator('#btn-export-overall-direct').count(), 0, 'Late leaderboard must not replace classification');
+    await page.locator('#view-tab-overall').click();
+    await page.locator('#btn-export-overall-direct').waitFor();
+    assert.deepEqual(await page.evaluate(() => window.__collections.map(r => r.c)), ['scores'],
+      'Overall leaderboard should reuse page metadata and its previous score request');
+    await page.locator('#view-tab-scores').click();
+    for (const width of [1440, 375, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+        `Results must not overflow at ${width}px`);
+      if (process.env.F1_SCREENSHOT_DIR) {
+        fs.mkdirSync(process.env.F1_SCREENSHOT_DIR, { recursive: true });
+        await page.screenshot({ path: path.join(process.env.F1_SCREENSHOT_DIR, `results-comparison-${width}.png`), fullPage: true });
+      }
+    }
+    await page.evaluate(async () => {
+      const { renderResults } = await import('/js/results.js');
+      const { setDocument } = await import('/js/firebase.js');
+      await setDocument('predictions', 'u1_r2_race', { raceId: 'r2', session: 'race', userId: 'u1', order: ['nor'] });
+      await renderResults('r2', 'race');
+    });
+    assert.match(await page.locator('#results-grid .result-actual-driver').first().textContent(), /Actual P1: Pending/);
     assert.deepEqual(errors, []);
     console.log('PASS: concurrent reads, no duplicate session reads, score fallback, locked predictions and admin editing');
   } finally {

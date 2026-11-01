@@ -219,16 +219,11 @@ async function processResults(raceId, session, officialOrder) {
  * @param {string} raceId
  * @param {string} session 
  */
-async function showResultsBreakdown(page, playerScores, officialOrder, raceId, session) {
+async function showResultsBreakdown(page, playerScores, officialOrder, raceId, session, pageData) {
   if (!page) return;
 
   // Load race data for session tabs and weekend selector
-  const [allRaces, allResults, users, firestoreTeams] = await Promise.all([
-    getAllDocuments('races'),
-    getAllDocuments('results'),
-    getAllDocuments('users'),
-    getAllDocuments('teams').catch(() => [])
-  ]);
+  const [allRaces, allResults, users, firestoreTeams] = pageData || await loadResultsPageData();
   if (firestoreTeams && firestoreTeams.length > 0) {
     updateTeamsCache(firestoreTeams);
   }
@@ -442,6 +437,13 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
 
   // Render view mode function
   let currentView = 'scores';
+  let overallStandingsPromise;
+
+  function renderActualDriver(ds) {
+    const actualId = sessionResultsStatus[session] ? officialOrder[ds.predictedPos - 1] : null;
+    const actualDriver = actualId ? getDriver(actualId) : null;
+    return `<span class="result-actual-driver">Actual P${ds.predictedPos}: <strong title="${escapeHTML(actualDriver?.name || actualId || 'Awaiting classification')}">${escapeHTML(actualDriver?.code || actualId || 'Pending')}</strong></span>`;
+  }
 
   function renderView() {
     const area = document.getElementById('results-content-area');
@@ -652,7 +654,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         exportSessionToExcel(raceId, session);
       });
 
-    } else {
+    } else if (currentView === 'scores') {
       // ==========================================
       // VIEW 3: SCORES & BREAKDOWN (DEFAULT)
       // ==========================================
@@ -722,6 +724,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                         <td>
                           <span style="display: inline-block; width: 3px; height: 12px; background: ${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
                           <strong>${driver?.code || ds.driverId}</strong> — ${driver?.name || ''}
+                          ${renderActualDriver(ds)}
                         </td>
                         <td><span class="badge" style="background: var(--glass-bg);">P${ds.predictedPos}</span></td>
                         <td><span class="badge" style="background: rgba(255,255,255,0.05);">P${ds.actualPos}</span></td>
@@ -865,6 +868,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                               <td>
                                 <span style="display: inline-block; width: 3px; height: 12px; background: ${teamColor}; border-radius: 2px; margin-right: 6px; vertical-align: middle;"></span>
                                 ${driver?.code || ds.driverId}
+                                ${renderActualDriver(ds)}
                               </td>
                               <td>P${ds.predictedPos}</td>
                               <td>P${ds.actualPos}</td>
@@ -914,7 +918,10 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         </div>
       `;
 
-      getCumulativeLeaderboardTillSession(raceDoc, session, scoreMap).then(overallStandings => {
+      overallStandingsPromise ||= getCumulativeLeaderboardTillSession(raceDoc, session, scoreMap, { allRaces, users });
+      overallStandingsPromise.then(overallStandings => {
+        // Ignore late responses after switching tabs or navigating to another session.
+        if (currentView !== 'overall' || !area.isConnected) return;
         if (!overallStandings || overallStandings.length === 0) {
           area.innerHTML = `
             <div class="empty-state" style="padding: var(--space-8) var(--space-4);">
@@ -1119,6 +1126,15 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
  * @param {string} raceId 
  * @param {string} session 
  */
+function loadResultsPageData() {
+  return Promise.all([
+    getAllDocuments('races'),
+    getAllDocuments('results'),
+    getAllDocuments('users'),
+    getAllDocuments('teams').catch(() => [])
+  ]);
+}
+
 async function renderResultsBreakdown(raceId, session, loadedResult = undefined) {
   const page = document.getElementById('results-page');
   if (!page) return;
@@ -1131,12 +1147,13 @@ async function renderResultsBreakdown(raceId, session, loadedResult = undefined)
   `;
 
   try {
-    const [existingResult, predictions] = await Promise.all([
+    const [existingResult, predictions, pageData] = await Promise.all([
       loadedResult !== undefined ? loadedResult : getDocument('results', `${raceId}_${session}`),
       queryCollection('predictions', [
         ['raceId', '==', raceId],
         ['session', '==', session]
-      ])
+      ]),
+      loadResultsPageData()
     ]);
     const officialOrder = existingResult?.order || [];
 
@@ -1175,7 +1192,7 @@ async function renderResultsBreakdown(raceId, session, loadedResult = undefined)
       }
     }));
 
-    await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
+    await showResultsBreakdown(page, playerScores, officialOrder, raceId, session, pageData);
   } catch (err) {
     console.error('[Results] Error showing breakdown:', err);
     showToast('Failed to load score breakdown', 'error');

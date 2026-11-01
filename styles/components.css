@@ -843,11 +843,12 @@
 /* --- Score Result Grid --- */
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
 }
 
 .result-player-card {
+  min-width: 0;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -855,6 +856,7 @@
 }
 
 .result-player-header {
+  gap: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -863,6 +865,7 @@
 }
 
 .result-player-name {
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);
   font-size: var(--text-md);
@@ -873,6 +876,20 @@
   font-weight: var(--weight-bold);
   font-size: var(--text-xl);
   color: var(--accent);
+}
+
+.result-actual-driver {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.result-actual-driver strong {
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
 }
 
 /* --- Your Result Card (Highlighted) --- */

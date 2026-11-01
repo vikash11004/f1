@@ -52,14 +52,15 @@ export async function ensureXLSXLoaded() {
  * @param {Object} targetRace - race object { id, round, name, ... }
  * @param {string} targetSessionKey - session key ('quali', 'race', etc.)
  * @param {Object} [currentSessionScoreMap={}] - optional map of userId -> score object for current session
+ * @param {Object} [pageData={}] - races and users already loaded for this results page
  * @returns {Promise<Array<Object>>} sorted array of player overall standings objects
  */
-export async function getCumulativeLeaderboardTillSession(targetRace, targetSessionKey, currentSessionScoreMap = {}) {
+export async function getCumulativeLeaderboardTillSession(targetRace, targetSessionKey, currentSessionScoreMap = {}, pageData = {}) {
   try {
     const [allRaces, allScores, users] = await Promise.all([
-      getAllDocuments('races'),
+      pageData.allRaces ? [...pageData.allRaces] : getAllDocuments('races'),
       getAllDocuments('scores'),
-      getAllDocuments('users')
+      pageData.users || getAllDocuments('users')
     ]);
 
     allRaces.sort((a, b) => a.round - b.round);
