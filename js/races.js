@@ -1,4 +1,4 @@
-import { escapeHTML, icon, pageHeading } from './design.js';
+import { escapeHTML, icon, pageHeading, renderFlag } from './design.js';
 // ============================================
 // F1 PREDICTION LEAGUE — RACES
 // Race list · Side panel · CRUD · Status
@@ -247,7 +247,7 @@ function renderRaceList(races) {
            data-race-id="${escapeHTML(race.id)}" data-status="${escapeHTML(race.status)}" role="button" tabindex="0" aria-label="${escapeHTML(race.name)} — race details" id="race-row-${escapeHTML(race.id)}">
         <div class="race-row-body">
           <span class="race-round"><small>ROUND</small><strong>${String(race.round).padStart(2, '0')}</strong></span>
-          <span class="race-flag">${escapeHTML(race.countryFlag)}</span>
+          ${renderFlag(race.countryFlag, 'race-flag', race.country)}
           <div class="race-row-info"><h3>${escapeHTML(race.name)}</h3><p>${escapeHTML(race.circuit)}${race.startDate ? ' · ' + escapeHTML(race.startDate) : ''}</p></div>
           <div class="race-row-meta">${subBadge}${sprintBadge}${statusBadge}${adminActionBtn}</div>
           ${icon('arrow', 'race-row-arrow')}
@@ -388,7 +388,7 @@ function openRacePanel(race) {
       <div style="margin-bottom: var(--space-6);">
         <span class="text-label">Details</span>
         <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
-          <p class="text-body-sm">${race.countryFlag} ${race.country}</p>
+          <p class="text-body-sm">${renderFlag(race.countryFlag, 'flag-inline', race.country)} ${escapeHTML(race.country)}</p>
           <p class="text-body-sm text-muted">${race.startDate || 'No dates set'}</p>
           <p class="text-body-sm text-muted">Race day: ${race.raceDate || 'TBD'}</p>
         </div>

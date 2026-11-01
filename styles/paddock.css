@@ -1005,6 +1005,35 @@ fieldset {
 .race-flag {
   font-size: 26px;
   width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.race-flag.flag-badge {
+  width: 36px;
+  height: 24px;
+}
+.flag-img {
+  width: 34px;
+  height: 23px;
+  object-fit: cover;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  display: block;
+}
+.flag-inline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.flag-inline .flag-img {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: inline-block;
 }
 .race-row-info {
   flex: 1;
@@ -1599,6 +1628,14 @@ fieldset {
   .race-flag {
     font-size: 22px;
     width: auto;
+  }
+  .race-flag.flag-badge {
+    width: 28px;
+    height: 19px;
+  }
+  .race-flag.flag-badge .flag-img {
+    width: 28px;
+    height: 19px;
   }
   .race-row-info h3 {
     font-size: 23px;

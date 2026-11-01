@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/animations.css">
-  <link rel="stylesheet" href="styles/paddock.css">
+  <link rel="stylesheet" href="styles/paddock.css?v=1.0.6">
 
   <!-- Excel Export (SheetJS) -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -165,7 +165,7 @@
     }
 
     const connectionTimer = setTimeout(showConnectionError, 15000);
-    import('./js/app.js?v=1.0.5').then(() => clearTimeout(connectionTimer)).catch(error => {
+    import('./js/app.js?v=1.0.6').then(() => clearTimeout(connectionTimer)).catch(error => {
       clearTimeout(connectionTimer);
       console.error('Unable to start the application:', error);
       showConnectionError();

@@ -1,4 +1,4 @@
-import { escapeHTML, icon, pageHeading } from './design.js';
+import { escapeHTML, icon, pageHeading, renderFlag } from './design.js';
 // ============================================
 // F1 PREDICTION LEAGUE — DASHBOARD
 // Info cards · Countdown · CTA
@@ -359,7 +359,7 @@ function renderNextRaceCard(race) {
         <div class="countdown-unit"><span class="countdown-value" id="cd-mins">--</span><span class="countdown-label">MINS</span></div>
         <div class="countdown-unit"><span class="countdown-value" id="cd-secs">--</span><span class="countdown-label">SECS</span></div>
       </div>
-      <div class="race-hero-footer"><span class="race-hero-link">${open ? 'Make your prediction' : 'Explore the race'} ${icon('arrow')}</span><span class="eyebrow">${escapeHTML(race.countryFlag)} ${formatRound(race.round)}</span></div>
+      <div class="race-hero-footer"><span class="race-hero-link">${open ? 'Make your prediction' : 'Explore the race'} ${icon('arrow')}</span><span class="eyebrow">${renderFlag(race.countryFlag, 'flag-inline', race.country)} ${formatRound(race.round)}</span></div>
     </div>
     <div class="race-hero-art"><img src="assets/race-car.svg" alt="" width="1000" height="760"><span class="race-hero-round">ROUND ${String(race.round).padStart(2, '0')} / 2026</span><span class="race-hero-art-label">TRUST YOUR RACING INSTINCT.</span></div>
   </div>`;
