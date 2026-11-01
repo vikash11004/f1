@@ -261,9 +261,13 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
   });
 
   // Determine initial selected team and driver
-  let initialDriver = preselectedDriverId ? DRIVERS_2026.find(d => d.id === preselectedDriverId) : null;
-  if (!initialDriver && activeReplacements.length > 0) {
-    initialDriver = activeReplacements[0].originalDriver;
+  let initialDriver = null;
+  if (preselectedDriverId) {
+    initialDriver = DRIVERS_2026.find(d => d.id === preselectedDriverId);
+  }
+  if (!initialDriver) {
+    // Prefer un-substituted driver so admin can cleanly add another replacement
+    initialDriver = DRIVERS_2026.find(d => !activeDriverIdMap[d.id]);
   }
   if (!initialDriver) {
     initialDriver = DRIVERS_2026[0];
@@ -298,10 +302,13 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
           <!-- Active Substitutions Alert if any exist -->
           ${activeReplacements.length > 0 ? `
             <div style="background: var(--bg-surface); border: 1px solid var(--sprint-amber, #e5a93c); border-radius: var(--radius-md); padding: 10px 14px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                 <span style="font-size: var(--text-xs); font-weight: 700; color: var(--sprint-amber, #e5a93c); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 5px;">
-                  ⚠️ Active Substitution${activeReplacements.length > 1 ? 's' : ''} for this GP
+                  ⚠️ Active Substitution${activeReplacements.length > 1 ? 's' : ''} for this GP (${activeReplacements.length})
                 </span>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-sub-add-another-modal" style="padding: 2px 8px; font-size: 11px;">
+                  + Add Another Replacement
+                </button>
               </div>
               <div style="display: flex; flex-direction: column; gap: 6px;">
                 ${activeReplacements.map(item => `
@@ -530,6 +537,53 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
     updateLivePreview();
   });
 
+  // Populate input fields based on whether selected driver currently has an active replacement
+  const populateFormForDriver = (driverId) => {
+    const existingRep = activeDriverIdMap[driverId]?.replacement;
+    if (existingRep) {
+      nameInput.value = existingRep.name || '';
+      codeInput.value = existingRep.code || '';
+      numberInput.value = existingRep.number || '';
+      notesInput.value = existingRep.notes || '';
+      codeManuallyEdited = true;
+
+      // Select matching nationality
+      for (let i = 0; i < nationalitySelect.options.length; i++) {
+        const opt = nationalitySelect.options[i];
+        if (opt.value === existingRep.nationality || opt.dataset.flag === existingRep.flag) {
+          nationalitySelect.selectedIndex = i;
+          break;
+        }
+      }
+
+      // Select matching scope
+      document.querySelectorAll('.replacement-scope-card[data-scope]').forEach(card => {
+        const radio = card.querySelector('input[type="radio"]');
+        const isMatch = radio?.value === (existingRep.scope || 'weekend');
+        card.classList.toggle('selected', isMatch);
+        if (radio) radio.checked = isMatch;
+      });
+    } else {
+      // Clear inputs for clean new replacement
+      nameInput.value = '';
+      codeInput.value = '';
+      numberInput.value = '';
+      notesInput.value = '';
+      codeManuallyEdited = false;
+
+      // Default scope to weekend
+      document.querySelectorAll('.replacement-scope-card[data-scope]').forEach(card => {
+        const radio = card.querySelector('input[type="radio"]');
+        const isMatch = radio?.value === 'weekend';
+        card.classList.toggle('selected', isMatch);
+        if (radio) radio.checked = isMatch;
+      });
+    }
+
+    updateRestoreButton();
+    updateLivePreview();
+  };
+
   // Render drivers prompt for selected team
   const updateTeamDriversPrompt = () => {
     const teamId = teamSelect.value;
@@ -544,7 +598,9 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
 
     // Check if previously selected driver is in this team
     if (!teamDrivers.some(d => d.id === selectedOriginalDriverId)) {
-      selectedOriginalDriverId = teamDrivers[0]?.id || '';
+      const unrep = teamDrivers.find(d => !activeDriverIdMap[d.id]);
+      selectedOriginalDriverId = (unrep || teamDrivers[0])?.id || '';
+      populateFormForDriver(selectedOriginalDriverId);
     }
 
     driversContainer.innerHTML = teamDrivers.map(d => {
@@ -583,8 +639,7 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
         const radio = label.querySelector('input[type="radio"]');
         if (radio) radio.checked = true;
 
-        updateRestoreButton();
-        updateLivePreview();
+        populateFormForDriver(selectedOriginalDriverId);
       });
     });
 
@@ -680,7 +735,22 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
   };
 
   // Wire input listeners
-  teamSelect.addEventListener('change', updateTeamDriversPrompt);
+  teamSelect.addEventListener('change', () => {
+    updateTeamDriversPrompt();
+    populateFormForDriver(selectedOriginalDriverId);
+  });
+
+  // Top banner button: + Add Another Replacement
+  document.getElementById('btn-sub-add-another-modal')?.addEventListener('click', () => {
+    const unrep = DRIVERS_2026.find(d => !activeDriverIdMap[d.id]);
+    if (unrep) {
+      teamSelect.value = unrep.team;
+      selectedOriginalDriverId = unrep.id;
+      updateTeamDriversPrompt();
+      populateFormForDriver(unrep.id);
+      nameInput.focus();
+    }
+  });
   nationalitySelect.addEventListener('change', updateLivePreview);
   [codeInput, numberInput, notesInput].forEach(inp => {
     inp.addEventListener('input', updateLivePreview);
@@ -694,6 +764,8 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
       if (teamId) teamSelect.value = teamId;
       selectedOriginalDriverId = driverId;
       updateTeamDriversPrompt();
+      populateFormForDriver(driverId);
+      nameInput.focus();
     });
   });
 
@@ -765,7 +837,8 @@ export function openDriverReplacementModal({ race, preselectedDriverId = null, o
         ? 'this weekend' 
         : (scope === 'rest_of_season' ? `the rest of the season (${affectedCount} races)` : `all ${affectedCount} races`);
 
-      showToast(`✓ Driver replaced: ${name} (${code} #${number}) for ${scopeDesc}!`, 'success');
+      const totalSubs = Object.keys(updatedRace.driverReplacements || {}).length;
+      showToast(`✓ Driver replaced: ${name} (${code} #${number}) for ${scopeDesc}! (${totalSubs} active substitution${totalSubs > 1 ? 's' : ''} this GP)`, 'success');
       closeModal();
 
       if (typeof onSaved === 'function') {

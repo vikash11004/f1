@@ -38,7 +38,8 @@ async function runTests() {
   } = await import('../js/driver-replacement.js');
 
   const {
-    calculateSessionScore
+    calculateSessionScore,
+    calculateCumulativePoints
   } = await import('../js/scoring.js');
 
   const firebase = await import('../js/firebase.js');
@@ -316,7 +317,99 @@ async function runTests() {
   assert.equal(australian.flag, '🇦🇺');
   console.log(`✓ All ${NATIONALITY_OPTIONS.length} nationality & flag options verified`);
 
-  console.log('\n🎉 ALL 10 TEST SUITES PASSED CLEANLY!\n');
+  // --- Test 11: Multiple replacements per weekend ---
+  console.log('\nTest 11: Multiple driver replacements per single race weekend');
+  const multiSubRace = {
+    id: 'r_multi',
+    round: 5,
+    name: 'Miami Grand Prix',
+    driverReplacements: {
+      sai: {
+        originalDriverId: 'sai',
+        name: 'Oliver Bearman',
+        code: 'BEA',
+        number: 38,
+        nationality: 'British',
+        flag: '🇬🇧',
+        team: 'williams',
+        scope: 'weekend'
+      },
+      alb: {
+        originalDriverId: 'alb',
+        name: 'Franco Colapinto',
+        code: 'COL',
+        number: 43,
+        nationality: 'Argentine',
+        flag: '🇦🇷',
+        team: 'williams',
+        scope: 'weekend'
+      },
+      law: {
+        originalDriverId: 'law',
+        name: 'Isack Hadjar',
+        code: 'HAD',
+        number: 6,
+        nationality: 'French',
+        flag: '🇫🇷',
+        team: 'rb',
+        scope: 'weekend'
+      }
+    }
+  };
+
+  const multiReps = getRaceReplacements(multiSubRace);
+  assert.equal(multiReps.length, 3, 'Must report exactly 3 replacements for this GP');
+  assert.ok(multiReps.some(r => r.driverId === 'sai' && r.replacement.code === 'BEA'));
+  assert.ok(multiReps.some(r => r.driverId === 'alb' && r.replacement.code === 'COL'));
+  assert.ok(multiReps.some(r => r.driverId === 'law' && r.replacement.code === 'HAD'));
+
+  const multiGrid = getAllDriversSorted(multiSubRace);
+  assert.equal(multiGrid.length, 22, 'Grid must still have exactly 22 drivers');
+  assert.ok(multiGrid.some(d => d.name === 'Oliver Bearman' && d.code === 'BEA' && d.isReplacement));
+  assert.ok(multiGrid.some(d => d.name === 'Franco Colapinto' && d.code === 'COL' && d.isReplacement));
+  assert.ok(multiGrid.some(d => d.name === 'Isack Hadjar' && d.code === 'HAD' && d.isReplacement));
+  assert.ok(!multiGrid.some(d => d.name === 'Carlos Sainz'));
+  assert.ok(!multiGrid.some(d => d.name === 'Alexander Albon'));
+
+  // Test partial restore: remove only Albon's sub
+  const { updatedRace: raceAfterRestore } = await removeDriverReplacement({
+    race: multiSubRace,
+    originalDriverId: 'alb',
+    scope: 'weekend'
+  });
+  const remainingReps = getRaceReplacements(raceAfterRestore);
+  assert.equal(remainingReps.length, 2, 'Should have 2 replacements left after restoring Albon');
+  assert.ok(remainingReps.some(r => r.driverId === 'sai'));
+  assert.ok(remainingReps.some(r => r.driverId === 'law'));
+  assert.ok(!remainingReps.some(r => r.driverId === 'alb'));
+  console.log('✓ Multiple replacements per weekend (add, display, grid, partial restore) pass cleanly');
+
+  // --- Test 12: Cumulative Accuracy & Bonus Points Calculation ---
+  console.log('\nTest 12: Cumulative Accuracy Points and Cumulative Bonus Points in Standings');
+  const sampleScores = [
+    { userId: 'u1', raceId: 'r1', session: 'quali', totalPoints: 120, accuracyPoints: 100, bonusPoints: 20 },
+    { userId: 'u1', raceId: 'r1', session: 'race', totalPoints: 260, accuracyPoints: 210, bonusPoints: 50 },
+    { userId: 'u2', raceId: 'r1', session: 'quali', totalPoints: 110, accuracyPoints: 90, bonusPoints: 20 },
+    { userId: 'u2', raceId: 'r1', session: 'race', totalPoints: 240, accuracyPoints: 200, bonusPoints: 40 },
+    { userId: 'u1', raceId: 'r2', session: 'race', totalPoints: 190, accuracyPoints: 150, bonusPoints: 40 }
+  ];
+
+  const cumPoints = calculateCumulativePoints(sampleScores);
+  assert.equal(cumPoints['u1'].accuracyPoints, 100 + 210 + 150); // 460
+  assert.equal(cumPoints['u1'].bonusPoints, 20 + 50 + 40); // 110
+  assert.equal(cumPoints['u2'].accuracyPoints, 90 + 200); // 290
+  assert.equal(cumPoints['u2'].bonusPoints, 20 + 40); // 60
+
+  // Total points should match accuracy + bonus
+  assert.equal(cumPoints['u1'].accuracyPoints + cumPoints['u1'].bonusPoints, 570);
+  assert.equal(cumPoints['u2'].accuracyPoints + cumPoints['u2'].bonusPoints, 350);
+
+  // Empty scores safety
+  const emptyCum = calculateCumulativePoints([]);
+  assert.deepEqual(emptyCum, {});
+  console.log('✓ Cumulative Accuracy Points and Cumulative Bonus Points calculation passes');
+
+  console.log('\n🎉 ALL 12 TEST SUITES PASSED CLEANLY!\n');
 }
 
 runTests().catch(err => {

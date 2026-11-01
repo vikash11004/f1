@@ -11,13 +11,14 @@ import {
 } from './firebase.js';
 import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
 import { rowSkeletonHTML } from './ui.js';
-import { calculateSessionWins } from './scoring.js';
+import { calculateSessionWins, calculateCumulativePoints } from './scoring.js';
 
 // --- State ---
 let unsubscribeUsers = null;
 let unsubscribeScores = null;
 let currentUsers = [];
 let sessionWinsMap = {};
+let cumulativePointsMap = {};
 let previousRanks = {}; // userId -> previous rank for animation
 
 /**
@@ -42,7 +43,7 @@ async function renderLeaderboard() {
   // Set up real-time listener for users
   unsubscribeUsers = listenToCollection('users', (users) => {
     currentUsers = users || [];
-    renderLeaderboardTable(currentUsers, sessionWinsMap);
+    renderLeaderboardTable(currentUsers, sessionWinsMap, cumulativePointsMap);
   }, [], {
     orderByField: 'seasonPoints',
     orderDirection: 'desc'
@@ -66,7 +67,7 @@ async function renderLeaderboard() {
  * @param {Array} users 
  * @param {Record<string, number>} [winsMap={}]
  */
-function renderLeaderboardTable(users, winsMap = {}) {
+function renderLeaderboardTable(users, winsMap = {}, cumulativePoints = {}) {
   const container = document.getElementById('leaderboard-content');
   if (!container) return;
 
@@ -102,6 +103,8 @@ function renderLeaderboardTable(users, winsMap = {}) {
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Season Pts</th>
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Last Event</th>
             <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Session Wins</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Cumulative Accuracy Pts</th>
+            <th style="padding: var(--space-3) var(--space-5); color: var(--text-muted); font-family: var(--font-body); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; white-space: nowrap;">Cumulative Bonus Pts</th>
           </tr>
         </thead>
         <tbody>
@@ -127,6 +130,8 @@ function renderLeaderboardTable(users, winsMap = {}) {
 
             // Session wins (computed from scores with fallback to user.wins)
             const userWins = winsMap[user.id] !== undefined ? winsMap[user.id] : (user.wins || 0);
+            const userAcc = cumulativePoints[user.id]?.accuracyPoints ?? (user.cumulativeAccuracyPoints || user.accuracyPoints || 0);
+            const userBonus = cumulativePoints[user.id]?.bonusPoints ?? (user.cumulativeBonusPoints || user.bonusPoints || 0);
 
             return `
               <tr class="leaderboard-row ${isLeader ? 'leader' : ''} ${animClass}" data-user-id="${escapeHTML(user.id)}">
@@ -142,6 +147,12 @@ function renderLeaderboardTable(users, winsMap = {}) {
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
                   <span class="text-data" style="font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--text-primary);">${userWins}</span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <span class="text-data" style="font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--text-secondary); font-family: var(--font-data);">${userAcc}</span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <span class="text-data" style="font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--sprint-amber, #e5a93c); font-family: var(--font-data);">${userBonus}</span>
                 </td>
               </tr>
             `;

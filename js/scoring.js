@@ -288,6 +288,24 @@ function calculateSessionWins(allScores = []) {
   return userWins;
 }
 
+/**
+ * Calculate cumulative accuracy points and cumulative bonus points for each user across all sessions.
+ * @param {Array<Object>} allScores - Array of score documents { userId, raceId, session, accuracyPoints, bonusPoints }
+ * @returns {Record<string, { accuracyPoints: number, bonusPoints: number }>}
+ */
+function calculateCumulativePoints(allScores = []) {
+  const userCumulative = {};
+  for (const s of allScores) {
+    if (!s || !s.userId) continue;
+    if (!userCumulative[s.userId]) {
+      userCumulative[s.userId] = { accuracyPoints: 0, bonusPoints: 0 };
+    }
+    userCumulative[s.userId].accuracyPoints += Number(s.accuracyPoints || 0);
+    userCumulative[s.userId].bonusPoints += Number(s.bonusPoints || 0);
+  }
+  return userCumulative;
+}
+
 // --- Exports ---
 export {
   RACE_SPRINT_POINTS,
@@ -301,5 +319,6 @@ export {
   getSessionTypeLabel,
   sortByActualPosition,
   calculateAccuracy,
-  calculateSessionWins
+  calculateSessionWins,
+  calculateCumulativePoints
 };

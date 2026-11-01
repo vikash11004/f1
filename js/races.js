@@ -463,28 +463,35 @@ function openRacePanel(race) {
           ` : ''}
         </div>
         <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
-          ${hasReplacements ? replacementsList.map(item => `
-            <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <div style="min-width: 0;">
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <strong style="color: var(--text-primary); font-size: var(--text-sm);">${escapeHTML(item.replacement.name)}</strong>
-                  <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; font-size: 9px; padding: 1px 5px;">SUB</span>
-                  <span style="font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted);">${escapeHTML(item.replacement.code)} #${item.replacement.number}</span>
-                  <span class="badge" style="font-size: 9px; padding: 1px 5px;">${item.replacement.scope === 'rest_of_season' ? 'Rest of Season' : (item.replacement.scope === 'all_season' ? 'All Season' : 'Weekend Only')}</span>
+          ${hasReplacements ? `
+            ${replacementsList.map(item => `
+              <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div style="min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <strong style="color: var(--text-primary); font-size: var(--text-sm);">${escapeHTML(item.replacement.name)}</strong>
+                    <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; font-size: 9px; padding: 1px 5px;">SUB</span>
+                    <span style="font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted);">${escapeHTML(item.replacement.code)} #${item.replacement.number}</span>
+                    <span class="badge" style="font-size: 9px; padding: 1px 5px;">${item.replacement.scope === 'rest_of_season' ? 'Rest of Season' : (item.replacement.scope === 'all_season' ? 'All Season' : 'Weekend Only')}</span>
+                  </div>
+                  <p style="font-size: var(--text-xs); color: var(--text-muted); margin: 2px 0 0;">
+                    Replaces ${escapeHTML(item.originalDriver?.name || item.driverId)} · ${escapeHTML(item.team?.name || '')}
+                    ${item.replacement.notes ? ` · <em>${escapeHTML(item.replacement.notes)}</em>` : ''}
+                  </p>
                 </div>
-                <p style="font-size: var(--text-xs); color: var(--text-muted); margin: 2px 0 0;">
-                  Replaces ${escapeHTML(item.originalDriver?.name || item.driverId)} · ${escapeHTML(item.team?.name || '')}
-                  ${item.replacement.notes ? ` · <em>${escapeHTML(item.replacement.notes)}</em>` : ''}
-                </p>
+                ${admin ? `
+                  <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                    <button class="btn btn-sm btn-ghost btn-edit-replacement" data-driver-id="${item.driverId}" title="Edit replacement" style="padding: 4px 6px; font-size: 11px;">✏️</button>
+                    <button class="btn btn-sm btn-ghost btn-restore-driver" data-driver-id="${item.driverId}" title="Restore original driver" style="padding: 4px 6px; font-size: 11px; color: var(--accent);">↺</button>
+                  </div>
+                ` : ''}
               </div>
-              ${admin ? `
-                <div style="display: flex; gap: 4px; flex-shrink: 0;">
-                  <button class="btn btn-sm btn-ghost btn-edit-replacement" data-driver-id="${item.driverId}" title="Edit replacement" style="padding: 4px 6px; font-size: 11px;">✏️</button>
-                  <button class="btn btn-sm btn-ghost btn-restore-driver" data-driver-id="${item.driverId}" title="Restore original driver" style="padding: 4px 6px; font-size: 11px; color: var(--accent);">↺</button>
-                </div>
-              ` : ''}
-            </div>
-          `).join('') : `
+            `).join('')}
+            ${admin ? `
+              <button class="btn btn-sm btn-secondary" id="btn-add-another-sub-panel" style="margin-top: 4px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: var(--text-xs); padding: 6px 10px;">
+                + Replace Another Driver for this GP (${replacementsList.length} Active)
+              </button>
+            ` : ''}
+          ` : `
             <div style="background: var(--glass-bg); border: 1px dashed var(--glass-border); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
               <span class="text-body-sm text-muted">Standard 2026 driver grid (22 drivers)</span>
               ${admin ? `
@@ -724,6 +731,7 @@ function openRacePanel(race) {
 
     document.getElementById('btn-manage-driver-replacements')?.addEventListener('click', () => handleOpenReplace());
     document.getElementById('btn-quick-add-sub')?.addEventListener('click', () => handleOpenReplace());
+    document.getElementById('btn-add-another-sub-panel')?.addEventListener('click', () => handleOpenReplace(null));
 
     document.querySelectorAll('.btn-edit-replacement').forEach(b => {
       b.addEventListener('click', (e) => {

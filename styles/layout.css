@@ -404,7 +404,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0 var(--space-1);
-  min-width: 600px; /* Ensure table doesn't squash too much */
+  min-width: 760px; /* Ensure 7 columns fit comfortably */
 }
 
 .leaderboard-row {
