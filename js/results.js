@@ -22,7 +22,7 @@ import {
 } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG, setRaceDriverContext, clearRaceDriverContext, getRaceReplacements } from './drivers.js';
 import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
-import { calculateSessionScore, sortByActualPosition, calculateSessionWins, calculateCumulativePoints } from './scoring.js';
+import { calculateSessionScore, sortByPredictedPosition, sortByActualPosition, calculateSessionWins, calculateCumulativePoints } from './scoring.js';
 import { renderPredictionBuilder } from './predictions.js';
 import { showToast, navigateTo, formatRound } from './ui.js';
 import { escapeHTML } from './design.js';
@@ -655,7 +655,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
 
       // --- SECTION 1: YOUR RESULT (FEATURED HERO CARD) ---
       if (currentUserScore) {
-        const sortedScores = sortByActualPosition(currentUserScore.driverScores || []);
+        const sortedScores = sortByPredictedPosition(currentUserScore.driverScores || []);
         html += `
           <div class="result-hero-card animate-card-enter">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-4); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--space-3);">
@@ -709,6 +709,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                 <tbody>
                   ${sortedScores.map(ds => {
                     const driver = getDriver(ds.driverId);
+                    const actualFinisher = (officialOrder && officialOrder[ds.predictedPos - 1]) ? getDriver(officialOrder[ds.predictedPos - 1]) : null;
                     const teamColor = driver ? getTeamColor(driver.team) : '#888';
                     const isExact = ds.diff === 0;
                     const diffColor = isExact ? 'var(--success)' : ds.diff <= 2 ? 'var(--sprint-amber)' : 'var(--text-muted)';
@@ -719,7 +720,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                           <strong>${driver?.code || ds.driverId}</strong> — ${driver?.name || ''}
                         </td>
                         <td><span class="badge" style="background: var(--glass-bg);">P${ds.predictedPos}</span></td>
-                        <td><span class="badge" style="background: rgba(255,255,255,0.05);">P${ds.actualPos}</span></td>
+                        <td><span class="badge" style="background: rgba(255,255,255,0.05);">P${ds.actualPos}</span>${actualFinisher && actualFinisher.id !== ds.driverId ? ` <span class="text-muted" style="font-size: 11px; margin-left: 6px;" title="Official P${ds.predictedPos} in race: ${actualFinisher.name}">(P${ds.predictedPos}: ${actualFinisher.code})</span>` : ''}</td>
                         <td style="color: ${diffColor}; font-weight: 600;">
                           ${isExact ? '✓ Exact (0)' : `Off by ${ds.diff}`}
                         </td>
@@ -801,7 +802,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
           ` : playerScores.map((ps, index) => {
             const user = userMap[ps.userId];
             const userName = user?.displayName || 'Unknown Player';
-            const sortedScores = sortByActualPosition(ps.driverScores || []);
+            const sortedScores = sortByPredictedPosition(ps.driverScores || []);
             const isUser = ps.userId === currentUserId;
             const hideThisPlayerPicks = !canViewOthers && !isUser;
 
@@ -853,6 +854,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                       <tbody>
                         ${sortedScores.map(ds => {
                           const driver = getDriver(ds.driverId);
+                          const actualFinisher = (officialOrder && officialOrder[ds.predictedPos - 1]) ? getDriver(officialOrder[ds.predictedPos - 1]) : null;
                           const teamColor = driver ? getTeamColor(driver.team) : '#888';
                           const diffColor = ds.diff === 0 ? 'var(--success)' : ds.diff <= 2 ? 'var(--sprint-amber)' : 'var(--text-muted)';
                           return `
@@ -862,7 +864,7 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                                 ${driver?.code || ds.driverId}
                               </td>
                               <td>P${ds.predictedPos}</td>
-                              <td>P${ds.actualPos}</td>
+                              <td>P${ds.actualPos}${actualFinisher && actualFinisher.id !== ds.driverId ? ` <small style="color: var(--text-muted); font-size: 10px; margin-left: 3px;" title="Official P${ds.predictedPos}: ${actualFinisher.name}">(${actualFinisher.code})</small>` : ''}</td>
                               <td style="color: ${diffColor}; font-weight: 600;">${ds.diff === 0 ? '✓' : ds.diff}</td>
                               <td style="color: ${ds.points > 0 ? 'var(--accent)' : 'var(--text-muted)'}; font-weight: bold;">${ds.points}</td>
                             </tr>

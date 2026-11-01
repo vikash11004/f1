@@ -236,6 +236,19 @@ function getSessionTypeLabel(sessionKey) {
  * @param {Array} driverScores 
  * @returns {Array} sorted by actual position
  */
+/**
+ * Sort driver scores by predicted position for display (P1, P2, P3...)
+ * @param {Array} driverScores 
+ * @returns {Array} sorted by predicted position
+ */
+function sortByPredictedPosition(driverScores) {
+  return [...driverScores].sort((a, b) => {
+    const posA = Number(a.predictedPos) || 999;
+    const posB = Number(b.predictedPos) || 999;
+    return posA - posB;
+  });
+}
+
 function sortByActualPosition(driverScores) {
   return [...driverScores].sort((a, b) => {
     if (a.actualPos === '-') return 1;
@@ -328,6 +341,7 @@ export {
   calculateWeekendTotal,
   getMaxPoints,
   getSessionTypeLabel,
+  sortByPredictedPosition,
   sortByActualPosition,
   calculateAccuracy,
   calculateSessionWins,
