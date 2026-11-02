@@ -121,8 +121,14 @@ async function run() {
     assert.deepEqual(await page.evaluate(() => window.__collections.map(r => r.c)), ['scores'],
       'Overall leaderboard should reuse page metadata and its previous score request');
     await page.locator('#view-tab-scores').click();
-    for (const width of [1440, 375, 320]) {
-      await page.setViewportSize({ width, height: 900 });
+    for (const [width, height] of [[1440, 900], [1024, 768], [820, 1180], [768, 1024], [600, 900], [375, 812], [320, 640], [844, 390]]) {
+      await page.setViewportSize({ width, height });
+      for (const view of ['official', 'matrix', 'overall', 'scores']) {
+        await page.locator(`#view-tab-${view}`).click();
+        if (view === 'overall') await page.locator('#btn-export-overall-direct').waitFor();
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+          `${view} results must not overflow at ${width}px`);
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
         `Results must not overflow at ${width}px`);
       if (process.env.F1_SCREENSHOT_DIR) {

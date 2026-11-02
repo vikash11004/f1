@@ -54,6 +54,7 @@ async function run() {
     async function open(width, height, signedIn = false, mock = true) {
       const context = await browser.newContext({
         viewport: { width, height },
+        hasTouch: width <= 1024,
         reducedMotion: 'reduce',
       });
       await context.addInitScript(
@@ -183,11 +184,60 @@ async function run() {
     await blocked.locator('#retry-connection').waitFor();
     assert.equal(await blocked.locator('#auth-submit').isDisabled(), true);
     await screenshot(blocked, 'offline-mobile');
-    for (const width of [320, 768, 1024]) {
+    for (const width of [320, 375, 600, 768, 820, 1024, 1440]) {
       const responsive = await open(width, 900, true);
       await responsive.locator('#card-next-race').waitFor();
       await screenshot(responsive, 'overview-' + width);
+      for (const [route, ready] of [
+        ['races', '.race-calendar-row'],
+        ['leaderboard', '.podium-card'],
+        ['predict/r3/quali', '#driver-pool .driver-card'],
+      ]) {
+        await responsive.evaluate(route => { location.hash = '#' + route; }, route);
+        await responsive.locator(ready).first().waitFor();
+        await screenshot(responsive, route.split('/')[0] + '-' + width);
+      }
+      const slots = await responsive.locator('#order-list .order-slot').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().height));
+      assert.ok(slots.every(height => height >= 44), 'Order rows must not collapse inside scroll panel');
+      if (width <= 1024) await responsive.locator('#driver-pool .driver-card').first().tap();
+      else await responsive.locator('#driver-pool .driver-card').first().click();
+      await responsive.locator('#order-list .filled').first().waitFor();
+      assert.match(await responsive.locator('#filled-count').innerText(), /1\/22/);
+      await responsive.locator('#order-list .filled').first().click();
+      assert.match(await responsive.locator('#filled-count').innerText(), /0\/22/);
+      if (width <= 900) {
+        if (width === 375) {
+          // A full touch-built prediction must leave Review/Lock and the dialog reachable.
+          for (let i = 0; i < 22; i++) await responsive.locator('#driver-pool .driver-card').first().click();
+          await responsive.locator('#btn-confirm').click();
+          await responsive.locator('.modal').waitFor();
+          await screenshot(responsive, 'prediction-confirm-phone');
+          await responsive.locator('.modal').evaluate(modal => {
+            if (modal.getBoundingClientRect().bottom > innerHeight + 1) throw new Error('Confirmation dialog exceeds screen');
+          });
+          await responsive.keyboard.press('Escape');
+        }
+        await responsive.locator('#mobile-menu-btn').click();
+        await responsive.locator('[data-page=races]').click();
+        await responsive.locator('.race-calendar-row').first().click();
+        await responsive.locator('.side-panel.open').waitFor();
+        await screenshot(responsive, 'race-details-' + width);
+      }
+      await responsive.context().close();
     }
+    const landscape = await open(844, 390, true);
+    await landscape.evaluate(() => { location.hash = '#predict/r3/quali'; });
+    await landscape.locator('#driver-pool .driver-card').first().waitFor();
+    await screenshot(landscape, 'prediction-landscape');
+    await landscape.locator('#chat-fab').tap();
+    await landscape.locator('#chat-popup:not(.hidden)').waitFor();
+    await screenshot(landscape, 'chat-landscape');
+    const chatBounds = await landscape.locator('#chat-popup').boundingBox();
+    assert.ok(chatBounds.y >= 0 && chatBounds.y + chatBounds.height <= 390, 'Landscape chat must fit the screen');
+    await landscape.locator('#btn-close-chat').tap();
+    await landscape.locator('#btn-signout').click();
+    await landscape.locator('#auth-submit:enabled').waitFor();
+    await screenshot(landscape, 'auth-landscape');
     assert.deepEqual(errors, []);
     console.log(
       'PASS: Auth validation, account toggle, password visibility, sign-in/out, overview, calendar filters and keyboard details, standings, driver selection, mobile menu, no horizontal overflow, and offline state. Firebase isolated with browser-only fixtures; no live writes.',

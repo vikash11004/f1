@@ -1174,6 +1174,7 @@ fieldset {
 }
 /* Prediction builder, dialogs and chat use the same tactile surfaces. */
 .prediction-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
   min-height: 0;
 }
@@ -1739,5 +1740,135 @@ fieldset {
       opacity: 1;
       transform: translateY(0);
     }
+  }
+}
+
+/* Responsive layout refinements: retain the paddock surfaces and typography. */
+.order-slot {
+  flex-shrink: 0;
+}
+.page, .table-responsive, .panel-header > *, .result-player-header > * {
+  min-width: 0;
+}
+.panel-header {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-count { white-space: nowrap; }
+.session-tab { flex-shrink: 0; }
+.modal {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.side-panel { max-height: 100dvh; }
+body:has(.side-panel.open, .modal-overlay) .chat-fab { visibility: hidden; }
+.table-responsive, .order-list, .driver-pool, .session-tabs {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+  .prediction-layout { gap: 16px; }
+  .prediction-layout .panel { padding: 16px; }
+  .order-slot { gap: 8px; }
+  .order-slot .driver-card-avatar { width: 32px; height: 32px; }
+  .order-slot .driver-card-number { display: none; }
+  .order-slot-placeholder { font-size: 12px; }
+  .driver-pool {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    padding-right: 0;
+  }
+  .driver-pool .driver-card {
+    min-width: 0;
+    min-height: 112px;
+    aspect-ratio: auto;
+    padding: 12px 8px;
+  }
+  .driver-pool .driver-card-info { flex: 0 1 auto; width: 100%; }
+  .driver-pool .driver-card-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    line-height: 1.35;
+  }
+  .order-list, .driver-pool {
+    max-height: min(560px, 60dvh);
+    overflow-y: auto;
+  }
+  #results-view-mode {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  #results-view-mode .toggle-option {
+    min-width: 0;
+    min-height: 48px;
+    white-space: normal;
+    justify-content: center;
+    padding: 10px;
+  }
+  #results-view-mode svg { flex-shrink: 0; }
+  .results-weekend-bar > div { min-width: 0; max-width: 100%; }
+  #results-race-select { width: 100%; min-width: 0; }
+  .result-hero-card .score-breakdown { min-width: 520px; }
+  .result-player-card .score-breakdown { min-width: 300px; }
+}
+
+@media (max-width: 900px) {
+  .btn, .btn-sm, .btn-icon, .filter-btn, .session-tab, .toggle-option {
+    min-height: 44px;
+  }
+  .btn-icon { min-width: 44px; }
+  .form-input, .form-select, #chat-input { font-size: 16px; }
+  .header-nav.mobile-open { max-height: calc(100dvh - 70px); overflow-y: auto; }
+  .side-panel-footer, .modal-footer { flex-wrap: wrap; }
+  .modal-overlay { padding: 16px; }
+  .modal-footer .btn { flex: 1 1 auto; white-space: normal; }
+  .confirm-bar-actions .btn { flex: 1; }
+  .confirm-bar { bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+@media (max-width: 680px) {
+  .app-main {
+    padding: 24px max(16px, env(safe-area-inset-left)) 80px max(16px, env(safe-area-inset-right));
+  }
+  .page { padding: 0; }
+  .page-title { font-size: clamp(32px, 9vw, 44px); overflow-wrap: anywhere; }
+  .prediction-layout { grid-template-columns: minmax(0, 1fr); }
+  .prediction-layout .panel { padding: 12px; }
+  .prediction-layout .panel-header { margin-bottom: 4px; padding-bottom: 10px; }
+  .panel-title { font-size: 22px; }
+  .order-list, .driver-pool {
+    max-height: clamp(180px, 40dvh, 360px);
+    overflow-y: auto;
+  }
+  .order-list { padding-right: 4px; }
+  .order-slot { min-height: 56px; }
+  .driver-pool { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+  .confirm-bar { padding: 12px; gap: 10px; }
+  .confirm-bar-actions { gap: 8px; }
+  .confirm-bar-message { font-size: 12px; }
+  .result-hero-card { padding: 16px; }
+  .results-weekend-bar > div { width: 100%; }
+  .calendar-toolbar, .calendar-filters { flex-wrap: wrap; }
+  .side-panel-header, .side-panel-body, .side-panel-footer { padding: 16px; }
+  .side-panel-header { gap: 12px; }
+  .side-panel-header > :first-child { min-width: 0; overflow-wrap: anywhere; }
+  .side-panel-header .btn { flex-shrink: 0; }
+  .chat-fab { bottom: calc(16px + env(safe-area-inset-bottom)); }
+  body:has(.confirm-bar:not(.hidden)) .chat-fab { bottom: calc(160px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 900px) and (max-height: 500px) {
+  .app-header { position: relative; }
+  .confirm-bar { position: relative; }
+  .chat-popup {
+    top: 8px;
+    bottom: 8px;
+    left: 50%;
+    right: auto;
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    transform: translateX(-50%);
   }
 }
