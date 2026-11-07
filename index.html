@@ -165,7 +165,7 @@
     }
 
     const connectionTimer = setTimeout(showConnectionError, 15000);
-    import('./js/app.js?v=1.1.1').then(() => clearTimeout(connectionTimer)).catch(error => {
+    import('./js/app.js?v=1.1.2').then(() => clearTimeout(connectionTimer)).catch(error => {
       clearTimeout(connectionTimer);
       console.error('Unable to start the application:', error);
       showConnectionError();

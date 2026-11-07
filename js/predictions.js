@@ -489,13 +489,32 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
   // Toggle Session Lock in Header (Admin)
   getPage().querySelector('#btn-toggle-session-lock-header')?.addEventListener('click', async () => {
     const currentlyLocked = isSessionLocked(currentRace, currentSession);
-    const newLocks = { ...(currentRace.sessionLocks || {}), [currentSession]: !currentlyLocked };
+    const willBeLocked = !currentlyLocked;
+    const newLocks = { ...(currentRace.sessionLocks || {}), [currentSession]: willBeLocked };
     try {
       await updateDocument('races', currentRace.id, { sessionLocks: newLocks });
       currentRace.sessionLocks = newLocks;
-      showToast(`${SESSION_LABELS[currentSession]} ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
+
+      if (willBeLocked) {
+        try {
+          const resDoc = await getDocument('results', `${currentRace.id}_${currentSession}`);
+          if (resDoc && resDoc.order && resDoc.order.length === 22) {
+            showToast(`${SESSION_LABELS[currentSession]} predictions LOCKED! Recalculating standings...`, 'info');
+            const { processResults } = await import('./results.js');
+            await processResults(currentRace.id, currentSession, resDoc.order);
+            showToast(`Predictions locked & standings updated for all players! 🏁`, 'success');
+            await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
+            return;
+          }
+        } catch (resErr) {
+          console.warn('[Predictions] Standings recalculation error:', resErr);
+        }
+      }
+
+      showToast(`${SESSION_LABELS[currentSession]} ${willBeLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
       await renderPredictionBuilder(currentRace.id, currentSession, isResultsMode);
     } catch (err) {
+      console.error('[Predictions] Failed to update session lock:', err);
       showToast('Failed to update session lock', 'error');
     }
   });

@@ -8,6 +8,7 @@ import {
   isAdmin,
   getDocument,
   setDocument,
+  updateDocument,
   queryCollection,
   getAllDocuments,
   createBatch,
@@ -81,17 +82,29 @@ async function renderResults(raceId, sessionKey, editOverride = false) {
  */
 async function processResults(raceId, session, officialOrder) {
   const page = document.getElementById('results-page');
+  const isResultsPageActive = page && page.classList.contains('active');
   
-  if (page) {
+  if (isResultsPageActive) {
     page.innerHTML = `
       <div class="spinner-overlay">
         <div class="spinner-lg"></div>
-        <span class="spinner-text">Calculating scores...</span>
+        <span class="spinner-text">Calculating scores & updating standings...</span>
       </div>
     `;
   }
 
   try {
+    // If officialOrder not provided, fetch existing official result
+    if (!officialOrder || officialOrder.length !== 22) {
+      const resDoc = await getDocument('results', `${raceId}_${session}`);
+      if (resDoc && resDoc.order && resDoc.order.length === 22) {
+        officialOrder = resDoc.order;
+      } else {
+        showToast('No official classification order found to score against', 'error');
+        return;
+      }
+    }
+
     // 1. Save the official result
     await setDocument('results', `${raceId}_${session}`, {
       raceId,
@@ -133,7 +146,9 @@ async function processResults(raceId, session, officialOrder) {
     if (predictions.length === 0) {
       await batch.commit();
       showToast(`Results confirmed for ${SESSION_FULL_LABELS[session] || session}! (0 player predictions)`, 'info');
-      await renderResultsBreakdown(raceId, session);
+      if (isResultsPageActive) {
+        await renderResultsBreakdown(raceId, session);
+      }
       return;
     }
 
@@ -166,26 +181,8 @@ async function processResults(raceId, session, officialOrder) {
     const userWinsMap = calculateSessionWins(combinedScores);
     const cumPointsMap = calculateCumulativePoints(combinedScores);
 
+    // Save individual session score documents
     for (const ps of playerScores) {
-      const oldScoreDoc = await getDocument('scores', `${ps.userId}_${raceId}_${session}`);
-      let delta = ps.totalPoints;
-      if (oldScoreDoc && oldScoreDoc.totalPoints !== undefined) {
-        delta = ps.totalPoints - oldScoreDoc.totalPoints;
-      }
-
-      const userData = await getDocument('users', ps.userId);
-      if (!userData) continue;
-
-      const newSeasonPoints = (userData.seasonPoints || 0) + delta;
-      const userRef = getDocRef('users', ps.userId);
-      batch.update(userRef, {
-        seasonPoints: newSeasonPoints,
-        lastEventScore: ps.totalPoints,
-        wins: userWinsMap[ps.userId] || 0,
-        cumulativeAccuracyPoints: cumPointsMap[ps.userId]?.accuracyPoints || 0,
-        cumulativeBonusPoints: cumPointsMap[ps.userId]?.bonusPoints || 0
-      });
-
       const scoreRef = getDocRef('scores', `${ps.userId}_${raceId}_${session}`);
       batch.set(scoreRef, {
         userId: ps.userId,
@@ -200,16 +197,49 @@ async function processResults(raceId, session, officialOrder) {
       });
     }
 
+    // Deterministically update all users who have participated or scored
+    const distinctUserIds = new Set([
+      ...playerScores.map(ps => ps.userId),
+      ...combinedScores.map(s => s.userId)
+    ]);
+
+    for (const uid of distinctUserIds) {
+      const userData = await getDocument('users', uid);
+      if (!userData) continue;
+
+      const userScores = combinedScores.filter(s => s.userId === uid);
+      const userSeasonPoints = userScores.reduce((sum, s) => sum + (Number(s.totalPoints) || 0), 0);
+      const thisSessionScore = playerScores.find(ps => ps.userId === uid);
+
+      const userUpdate = {
+        seasonPoints: userSeasonPoints,
+        wins: userWinsMap[uid] || 0,
+        cumulativeAccuracyPoints: cumPointsMap[uid]?.accuracyPoints || 0,
+        cumulativeBonusPoints: cumPointsMap[uid]?.bonusPoints || 0
+      };
+
+      if (thisSessionScore) {
+        userUpdate.lastEventScore = thisSessionScore.totalPoints;
+      }
+
+      const userRef = getDocRef('users', uid);
+      batch.update(userRef, userUpdate);
+    }
+
     await batch.commit();
 
-    // 5. Show results breakdown
-    await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
-    showToast(`Scores calculated for ${SESSION_FULL_LABELS[session] || session}!`, 'success');
+    // 5. Show results breakdown if results page is active
+    if (isResultsPageActive) {
+      await showResultsBreakdown(page, playerScores, officialOrder, raceId, session);
+    }
+    showToast(`Scores calculated & Standings updated for ${SESSION_FULL_LABELS[session] || session}! 🏁`, 'success');
 
   } catch (error) {
     console.error('[Results] Error processing results:', error);
     showToast('Failed to calculate scores: ' + error.message, 'error');
-    navigateTo('races');
+    if (isResultsPageActive) {
+      navigateTo('races');
+    }
   }
 }
 
@@ -1098,14 +1128,23 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   // Admin Session Lock Toggle in Results page
   document.getElementById('btn-admin-toggle-results-lock')?.addEventListener('click', async () => {
     const currentlyLocked = isSessionLocked(raceDoc, session);
-    const newLocks = { ...(raceDoc?.sessionLocks || {}), [session]: !currentlyLocked };
+    const willBeLocked = !currentlyLocked;
+    const newLocks = { ...(raceDoc?.sessionLocks || {}), [session]: willBeLocked };
     try {
       await updateDocument('races', raceDoc.id, { sessionLocks: newLocks });
       raceDoc.sessionLocks = newLocks;
-      showToast(`${SESSION_LABELS[session] || session} predictions ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED for players'}`, 'success');
-      await renderResults(raceId, session);
+
+      if (willBeLocked && officialOrder && officialOrder.length === 22) {
+        showToast(`${SESSION_LABELS[session] || session} predictions LOCKED! Recalculating standings...`, 'info');
+        await processResults(raceId, session, officialOrder);
+        showToast(`Predictions locked & standings updated for all players! 🏁`, 'success');
+      } else {
+        showToast(`${SESSION_LABELS[session] || session} predictions ${willBeLocked ? 'LOCKED' : 'UNLOCKED for players'}`, 'success');
+        await renderResults(raceId, session);
+      }
     } catch (err) {
-      showToast('Failed to update session lock', 'error');
+      console.error('[Results] Failed to update session lock:', err);
+      showToast('Failed to update session lock: ' + (err.message || err), 'error');
     }
   });
 

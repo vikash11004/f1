@@ -582,14 +582,34 @@ function openRacePanel(race) {
       e.stopPropagation();
       const sess = btn.dataset.session;
       const currentlyLocked = isSessionLocked(race, sess);
-      const newLocks = { ...(race.sessionLocks || {}), [sess]: !currentlyLocked };
+      const willBeLocked = !currentlyLocked;
+      const newLocks = { ...(race.sessionLocks || {}), [sess]: willBeLocked };
       try {
         await updateDocument('races', race.id, { sessionLocks: newLocks });
         race.sessionLocks = newLocks;
-        showToast(`${SESSION_LABELS[sess]} ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
+
+        if (willBeLocked) {
+          try {
+            const resDoc = await getDocument('results', `${race.id}_${sess}`);
+            if (resDoc && resDoc.order && resDoc.order.length === 22) {
+              showToast(`${SESSION_LABELS[sess]} predictions LOCKED! Recalculating standings...`, 'info');
+              const { processResults } = await import('./results.js');
+              await processResults(race.id, sess, resDoc.order);
+              showToast(`Predictions locked & standings updated for all players! 🏁`, 'success');
+              openRacePanel(race);
+              renderRaces();
+              return;
+            }
+          } catch (resErr) {
+            console.warn('[Races] Standings recalculation error:', resErr);
+          }
+        }
+
+        showToast(`${SESSION_LABELS[sess]} ${willBeLocked ? 'LOCKED' : 'UNLOCKED'}`, 'success');
         openRacePanel(race); // refresh panel
         renderRaces(); // refresh list
       } catch (err) {
+        console.error('[Races] Failed to update session lock:', err);
         showToast('Failed to update session lock', 'error');
       }
     });

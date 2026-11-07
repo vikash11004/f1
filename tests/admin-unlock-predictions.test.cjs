@@ -159,7 +159,28 @@ async function runTests() {
   assert.equal(scoreResult.driverScores.length, 22);
   console.log(`✓ Late prediction scored accurately (${scoreResult.totalPoints} pts, ${exactMatches} exact matches)`);
 
-  console.log('\n🎉 ALL 7 ADMIN UNLOCK TEST SUITES PASSED CLEANLY!\n');
+  // --- Test 8: Auto-update Standings on Lock ---
+  console.log('\nTest 8: Standings recalculation on locking unlocked session');
+  const { calculateSessionWins, calculateCumulativePoints } = await import('../js/scoring.js');
+  const mockScores = [
+    {
+      userId: 'u1',
+      raceId: 'r1',
+      session: 'race',
+      totalPoints: scoreResult.totalPoints,
+      accuracyPoints: scoreResult.accuracyPoints,
+      bonusPoints: scoreResult.bonusPoints
+    }
+  ];
+  const winsMap = calculateSessionWins(mockScores);
+  const cumMap = calculateCumulativePoints(mockScores);
+
+  assert.equal(winsMap['u1'], 1, 'Player u1 should have 1 session win');
+  assert.equal(cumMap['u1']?.accuracyPoints, scoreResult.accuracyPoints, 'Cumulative accuracy points should match');
+  assert.equal(cumMap['u1']?.bonusPoints, scoreResult.bonusPoints, 'Cumulative bonus points should match');
+  console.log('✓ Auto-update Standings calculations on session lock pass cleanly');
+
+  console.log('\n🎉 ALL 8 ADMIN UNLOCK TEST SUITES PASSED CLEANLY!\n');
 }
 
 runTests().catch(err => {

@@ -236,8 +236,9 @@ function renderLeaderboardTable(users, winsMap = {}, cumulativePoints = {}) {
     .sort((a, b) => (Number(b.seasonPoints) || 0) - (Number(a.seasonPoints) || 0));
 
   if (ranked.length === 0) {
-    if (isInitialLoading) {
+    if (isInitialLoading || !_hasLoadedOnce) {
       // Data is still loading! NEVER show empty state while initial loading is in progress
+      renderLeaderboardSkeleton();
       return;
     }
     if (podium) podium.innerHTML = '';
