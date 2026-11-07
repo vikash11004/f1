@@ -7,6 +7,7 @@
   },
   "scripts": {
     "test:ui": "node tests/ui-smoke.cjs",
-    "test:replacement": "node --loader ./tests/loader.mjs tests/driver-replacement.test.cjs"
+    "test:replacement": "node --loader ./tests/loader.mjs tests/driver-replacement.test.cjs",
+    "test:unlock": "node --loader ./tests/loader.mjs tests/admin-unlock-predictions.test.cjs"
   }
 }

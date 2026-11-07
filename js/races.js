@@ -14,7 +14,7 @@ import {
   getDocument,
   serverTimestamp
 } from './firebase.js';
-import { SESSION_KEYS, SESSION_LABELS } from './seed.js';
+import { SESSION_KEYS, SESSION_LABELS, isSessionLocked, isSessionUnlockedByAdmin } from './seed.js';
 import { createTelemetrySVG, renderEmptyStateSVG, getRaceReplacements, getDriver } from './drivers.js';
 import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
 import {
@@ -227,6 +227,9 @@ function renderRaceList(races) {
         `;
       }
     } else {
+      const raceSessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+      const hasUnlockedSession = raceSessions.some(s => !isSessionLocked(race, s));
+
       if (race.status === 'completed') {
         adminActionBtn = `
           <button class="btn btn-sm btn-secondary btn-quick-results" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs); display: inline-flex; align-items: center; gap: 5px;">
@@ -236,8 +239,11 @@ function renderRaceList(races) {
             </svg>
             View Results
           </button>
+          ${hasUnlockedSession ? `
+            <button class="btn btn-sm btn-primary btn-quick-predict" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs); margin-left: 4px;">Predict →</button>
+          ` : ''}
         `;
-      } else if (race.status === 'active') {
+      } else if (race.status === 'active' || hasUnlockedSession) {
         adminActionBtn = `<button class="btn btn-sm btn-primary btn-quick-predict" data-race-id="${race.id}" style="padding: 4px 10px; font-size: var(--text-xs);">Predict →</button>`;
       }
     }
@@ -326,7 +332,8 @@ function renderRaceList(races) {
       const race = races.find(r => r.id === raceId);
       if (!race) return;
       const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
-      navigateTo('predict', raceId, sessions[0]);
+      const firstOpen = sessions.find(s => !isSessionLocked(race, s)) || sessions[0];
+      navigateTo('predict', raceId, firstOpen);
     });
   });
 }
@@ -413,7 +420,7 @@ function openRacePanel(race) {
         <span class="text-label">Sessions, Locks & Status</span>
         <div style="margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
           ${sessions.map(s => {
-            const isSessLocked = race.status === 'locked' || race.status === 'completed' || (race.sessionLocks && race.sessionLocks[s] === true);
+            const isSessLocked = isSessionLocked(race, s);
             const isSessVoided = race.cancelledSessions && race.cancelledSessions[s] === true;
             return `
               <div style="display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); gap: 6px;">
@@ -444,7 +451,14 @@ function openRacePanel(race) {
                       ${isSessVoided ? '↩️ Restore' : '🚫 Void'}
                     </button>
                   ` : `
-                    <span class="badge ${isSessVoided ? 'badge-danger' : (isSessLocked ? 'badge-locked' : 'badge-upcoming')}" style="${isSessVoided ? 'background: #e63946; color: white;' : ''}">${isSessVoided ? 'CANCELLED' : (isSessLocked ? 'LOCKED' : 'OPEN')}</span>
+                    ${isSessVoided ? `
+                      <span class="badge badge-danger" style="background: #e63946; color: white;">CANCELLED</span>
+                    ` : (isSessLocked ? `
+                      <span class="badge badge-locked">LOCKED</span>
+                    ` : `
+                      <span class="badge badge-active" style="background: var(--success); color: white;">OPEN</span>
+                      <button class="btn btn-sm btn-primary btn-panel-predict" data-session="${s}" style="font-size: var(--text-xs); padding: 4px 8px;">Predict →</button>
+                    `)}
                   `}
                 </div>
               </div>
@@ -524,7 +538,7 @@ function openRacePanel(race) {
               View Results & Scores →
             </button>
           ` : ''}
-          ${!admin && race.status === 'active' ? `
+          ${!admin && (race.status === 'active' || sessions.some(s => !isSessionLocked(race, s))) ? `
             <button class="btn btn-primary" id="btn-make-prediction">
               Make Predictions →
             </button>
@@ -567,7 +581,7 @@ function openRacePanel(race) {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const sess = btn.dataset.session;
-      const currentlyLocked = btn.dataset.locked === 'true';
+      const currentlyLocked = isSessionLocked(race, sess);
       const newLocks = { ...(race.sessionLocks || {}), [sess]: !currentlyLocked };
       try {
         await updateDocument('races', race.id, { sessionLocks: newLocks });
@@ -673,8 +687,19 @@ function openRacePanel(race) {
   // Make prediction
   document.getElementById('btn-make-prediction')?.addEventListener('click', () => {
     const sessions = SESSION_KEYS[race.weekendType] || SESSION_KEYS.standard;
+    const firstOpen = sessions.find(s => !isSessionLocked(race, s)) || sessions[0];
     closeSidePanel();
-    navigateTo('predict', race.id, sessions[0]);
+    navigateTo('predict', race.id, firstOpen);
+  });
+
+  // Individual session Predict buttons in panel (Non-Admin)
+  document.querySelectorAll('.btn-panel-predict').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = btn.dataset.session;
+      closeSidePanel();
+      navigateTo('predict', race.id, s);
+    });
   });
 
   // View race results

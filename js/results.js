@@ -19,7 +19,9 @@ import {
   SESSION_LABELS,
   SESSION_FULL_LABELS,
   getTeamById,
-  updateTeamsCache
+  updateTeamsCache,
+  isSessionLocked,
+  isSessionUnlockedByAdmin
 } from './seed.js';
 import { getDriver, getTeamColor, renderEmptyStateSVG, setRaceDriverContext, clearRaceDriverContext, getRaceReplacements } from './drivers.js';
 import { openDriverReplacementModal, openRestoreDriverModal } from './driver-replacement.js';
@@ -274,8 +276,8 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
 
   // Check if session is currently open for prediction
   const isSessionCancelled = raceDoc?.cancelledSessions?.[session] === true;
-  const isSessionLocked = raceDoc?.status === 'completed' || raceDoc?.status === 'locked' || raceDoc?.sessionLocks?.[session] === true;
-  const canPredictSession = !isSessionCancelled && !isSessionLocked && !isAdmin();
+  const isCurrentSessionLocked = isSessionLocked(raceDoc, session);
+  const canPredictSession = !isSessionCancelled && !isCurrentSessionLocked && !isAdmin();
 
   const sessionLabel = SESSION_FULL_LABELS[session] || session;
   const raceName = raceDoc?.name || 'Grand Prix';
@@ -295,6 +297,11 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
         <span class="badge" style="background: ${hasResults ? 'var(--status-completed)' : 'var(--accent)'}; color: white; border: none;">
           ${hasResults ? 'RESULTS CONFIRMED' : 'AWAITING CLASSIFICATION'}
         </span>
+        ${!isCurrentSessionLocked ? `
+          <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; border: none; font-size: 11px;">
+            🔓 PREDICTIONS UNLOCKED
+          </span>
+        ` : ''}
         ${raceDoc?.driverReplacements && Object.keys(raceDoc.driverReplacements).length > 0 ? `
           <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; border: none; font-size: 10px;" title="Active substitutions: ${escapeHTML(Object.values(raceDoc.driverReplacements).map(r => `${r.name} subbing for original driver`).join(', '))}">
             ⚠️ ${Object.keys(raceDoc.driverReplacements).length} DRIVER SUB ACTIVE
@@ -353,6 +360,17 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
           Export Excel
         </button>
         ${isAdmin() ? `
+          <button class="btn btn-sm ${isCurrentSessionLocked ? 'btn-ghost' : 'btn-danger'}" id="btn-admin-toggle-results-lock" style="display: inline-flex; align-items: center; gap: 5px;" title="${isCurrentSessionLocked ? 'Unlock predictions for unpredicted players' : 'Lock predictions for this session'}">
+            ${isCurrentSessionLocked ? '🔓 Unlock Predictions' : '🔒 Lock Predictions'}
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-recalculate-scores" style="display: inline-flex; align-items: center; gap: 6px;" title="Recalculate scores and update standings for all players">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Recalculate Scores
+          </button>
           <button class="btn btn-secondary btn-sm" id="btn-edit-results-breakdown" style="display: inline-flex; align-items: center; gap: 6px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -766,7 +784,9 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
                 <h3 class="text-md" style="margin: 0; font-weight: 700;">You have not predicted for this session</h3>
               </div>
               <p class="text-body-sm text-muted" style="margin: 0;">
-                Other players' driver picks are hidden. Submit your prediction for this session to reveal everyone's picks!
+                ${isSessionUnlockedByAdmin(raceDoc, session)
+                  ? '⚡ Admin has unlocked predictions for this session! Submit your prediction now to be scored against the official classification.'
+                  : "Other players' driver picks are hidden. Submit your prediction for this session to reveal everyone's picks!"}
               </p>
             </div>
             <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
@@ -1073,6 +1093,36 @@ async function showResultsBreakdown(page, playerScores, officialOrder, raceId, s
   // Back button
   document.getElementById('btn-back-results')?.addEventListener('click', () => {
     navigateTo('races');
+  });
+
+  // Admin Session Lock Toggle in Results page
+  document.getElementById('btn-admin-toggle-results-lock')?.addEventListener('click', async () => {
+    const currentlyLocked = isSessionLocked(raceDoc, session);
+    const newLocks = { ...(raceDoc?.sessionLocks || {}), [session]: !currentlyLocked };
+    try {
+      await updateDocument('races', raceDoc.id, { sessionLocks: newLocks });
+      raceDoc.sessionLocks = newLocks;
+      showToast(`${SESSION_LABELS[session] || session} predictions ${!currentlyLocked ? 'LOCKED' : 'UNLOCKED for players'}`, 'success');
+      await renderResults(raceId, session);
+    } catch (err) {
+      showToast('Failed to update session lock', 'error');
+    }
+  });
+
+  // Admin Recalculate Scores in Results page
+  document.getElementById('btn-recalculate-scores')?.addEventListener('click', async () => {
+    if (!officialOrder || officialOrder.length !== 22) {
+      showToast('No official classification order found to score against', 'error');
+      return;
+    }
+    showModal({
+      title: 'Recalculate Scores?',
+      message: 'This will recompute points and update season standings for all players based on the official classification.',
+      confirmText: 'Recalculate ✓',
+      onConfirm: async () => {
+        await processResults(raceId, session, officialOrder);
+      }
+    });
   });
 
   // Edit Results button (Admin)

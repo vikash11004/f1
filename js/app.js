@@ -1,10 +1,10 @@
 // --- Import all modules ---
 import { initAuth, renderAuthScreen } from './auth.js';
-import { renderDashboard, cleanupDashboard } from './dashboard.js?v=1.1.0';
-import { renderRaces } from './races.js?v=1.1.0';
-import { renderPredictionBuilder, cleanupPredictions } from './predictions.js?v=1.1.0';
-import { renderResults } from './results.js?v=1.1.0';
-import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js?v=1.1.0';
+import { renderDashboard, cleanupDashboard } from './dashboard.js?v=1.1.1';
+import { renderRaces } from './races.js?v=1.1.1';
+import { renderPredictionBuilder, cleanupPredictions } from './predictions.js?v=1.1.1';
+import { renderResults } from './results.js?v=1.1.1';
+import { renderLeaderboard, cleanupLeaderboard } from './leaderboard.js?v=1.1.1';
 import { registerPage, initRouter, initNav } from './ui.js';
 
 // --- Register page renderers ---
@@ -14,7 +14,7 @@ registerPage('auth', renderAuthScreen);
 (async () => {
   try {
     const { getAllDocuments, listenToCollection } = await import('./firebase.js');
-    const { updateTeamsCache } = await import('./seed.js?v=1.1.0');
+    const { updateTeamsCache } = await import('./seed.js?v=1.1.1');
     getAllDocuments('teams').then(teams => {
       if (teams?.length) updateTeamsCache(teams);
     }).catch(() => {});

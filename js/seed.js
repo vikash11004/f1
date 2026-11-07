@@ -168,6 +168,34 @@ function getDriverById(driverId) {
 }
 
 /**
+ * Determine if a race session is locked for predictions
+ * Admin can explicitly unlock any session (even for completed or locked races) by setting sessionLocks[session] === false
+ * @param {Object} race 
+ * @param {string} session 
+ * @returns {boolean}
+ */
+function isSessionLocked(race, session) {
+  if (!race) return true;
+  if (race.cancelledSessions && race.cancelledSessions[session] === true) return true;
+  if (race.sessionLocks && race.sessionLocks[session] !== undefined) {
+    return race.sessionLocks[session] === true;
+  }
+  return race.status !== 'active';
+}
+
+/**
+ * Check if a session was explicitly unlocked by admin for a non-active race
+ * @param {Object} race 
+ * @param {string} session 
+ * @returns {boolean}
+ */
+function isSessionUnlockedByAdmin(race, session) {
+  if (!race) return false;
+  if (race.cancelledSessions && race.cancelledSessions[session] === true) return false;
+  return Boolean(race.sessionLocks && race.sessionLocks[session] === false);
+}
+
+/**
  * Seed all 2026 data into Firestore on first run.
  * Checks if data already exists before writing.
  */
@@ -253,6 +281,8 @@ export {
   getTeamById,
   updateTeamsCache,
   getDriverById,
+  isSessionLocked,
+  isSessionUnlockedByAdmin,
   seedData
 };
 

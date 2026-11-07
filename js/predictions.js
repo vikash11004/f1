@@ -18,7 +18,9 @@ import {
   SESSION_KEYS,
   SESSION_LABELS,
   SESSION_FULL_LABELS,
-  getTeamById
+  getTeamById,
+  isSessionLocked,
+  isSessionUnlockedByAdmin
 } from './seed.js';
 import {
   getTeamColor,
@@ -119,7 +121,15 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       return;
     }
 
-    if (!resultsMode && currentRace.status === 'upcoming') {
+    const sessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
+    currentSession = sessions.includes(sessionKey) ? sessionKey : sessions[0];
+
+    // Determine lock and void state (including per-session controls and admin unlocks)
+    const cancelledSessions = currentRace.cancelledSessions || {};
+    const isCurrentSessionVoided = cancelledSessions[currentSession] === true;
+    const isCurrentSessionLocked = isSessionLocked(currentRace, currentSession);
+
+    if (!resultsMode && currentRace.status === 'upcoming' && isCurrentSessionLocked) {
       page.innerHTML = `
         <div class="empty-state">
           ${renderEmptyStateSVG()}
@@ -130,15 +140,6 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       `;
       return;
     }
-
-    const sessions = SESSION_KEYS[currentRace.weekendType] || SESSION_KEYS.standard;
-    currentSession = sessions.includes(sessionKey) ? sessionKey : sessions[0];
-
-    // Determine lock and void state (including per-session controls)
-    const sessionLocks = currentRace.sessionLocks || {};
-    const cancelledSessions = currentRace.cancelledSessions || {};
-    const isCurrentSessionVoided = cancelledSessions[currentSession] === true;
-    const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true || isCurrentSessionVoided;
 
     isLocked = false;
     isReadOnly = false;
@@ -168,11 +169,14 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
     };
 
     if (!resultsMode) {
-      if (currentRace.status === 'completed' || isCurrentSessionVoided) {
+      if (isCurrentSessionVoided) {
         isReadOnly = true;
       } else if (isCurrentSessionLocked) {
         isReadOnly = true;
         isLocked = true;
+      } else {
+        isReadOnly = false;
+        isLocked = false;
       }
     }
 
@@ -212,13 +216,18 @@ async function renderPredictionBuilder(raceId, sessionKey, resultsMode = false, 
       }
 
       // Check if official results exist
-      if (isLocked || currentRace.status === 'completed') {
+      // Only display official results and scores if this player has already locked their prediction
+      if (playerHasLocked) {
         try {
           const existingResult = await getDocument('results', `${raceId}_${currentSession}`);
           if (existingResult?.order && existingResult?.calculatedAt) {
             hasCalculatedResults = true;
             officialResultOrder = existingResult.order;
             userSessionScoreData = await loadScore(currentSession);
+            if (!userSessionScoreData && existingPred?.order?.length === 22) {
+              const { calculateSessionScore } = await import('./scoring.js');
+              userSessionScoreData = calculateSessionScore(existingPred.order, officialResultOrder, currentSession);
+            }
           }
         } catch (e) {
           console.warn('[Predictions] Could not check official results:', e);
@@ -273,7 +282,7 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
   const sessionLocks = currentRace.sessionLocks || {};
   const cancelledSessions = currentRace.cancelledSessions || {};
   const isCurrentSessionVoided = cancelledSessions[currentSession] === true;
-  const isCurrentSessionLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true || isCurrentSessionVoided;
+  const isCurrentSessionLocked = isSessionLocked(currentRace, currentSession);
 
   page.innerHTML = `
     <div class="page-header" style="margin-bottom: var(--space-4);">
@@ -316,7 +325,9 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
                   </svg>
                   Export Excel
                 </button>
-              ` : ''))}
+              ` : (isSessionUnlockedByAdmin(currentRace, currentSession) ? `
+                <span class="badge" style="background: var(--sprint-amber, #e5a93c); color: #111; font-weight: 700; border: none; font-size: 11px;">🔓 PREDICTIONS UNLOCKED BY ADMIN</span>
+              ` : '')))}
         ${(playerHasLocked && !isResultsMode && !isCurrentSessionVoided) ? `
           <button class="btn btn-secondary btn-sm" id="btn-view-others" style="margin-left: var(--space-2);">
             👀 View Others
@@ -351,7 +362,7 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
         const isActive = s === currentSession;
         const scoreStr = sessionScores[s] !== undefined ? `${sessionScores[s]} pts` : '';
         const tabIsVoided = cancelledSessions[s] === true;
-        const tabIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[s] === true;
+        const tabIsLocked = isSessionLocked(currentRace, s);
         const lockIcon = tabIsVoided ? '🚫' : (tabIsLocked ? '🔒' : '');
         const isConfirmed = isResultsMode && sessionResultsStatus[s] === true;
         return `
@@ -477,9 +488,8 @@ function renderBuilderUI(page, sessions, sessionScores, sessionResultsStatus = {
 
   // Toggle Session Lock in Header (Admin)
   getPage().querySelector('#btn-toggle-session-lock-header')?.addEventListener('click', async () => {
-    const sessionLocks = currentRace.sessionLocks || {};
-    const currentlyLocked = sessionLocks[currentSession] === true;
-    const newLocks = { ...sessionLocks, [currentSession]: !currentlyLocked };
+    const currentlyLocked = isSessionLocked(currentRace, currentSession);
+    const newLocks = { ...(currentRace.sessionLocks || {}), [currentSession]: !currentlyLocked };
     try {
       await updateDocument('races', currentRace.id, { sessionLocks: newLocks });
       currentRace.sessionLocks = newLocks;
@@ -583,8 +593,7 @@ async function fetchAndShowOthersPredictions() {
       return;
     }
 
-    const sessionLocks = currentRace.sessionLocks || {};
-    const sessionIsLocked = currentRace.status === 'locked' || currentRace.status === 'completed' || sessionLocks[currentSession] === true;
+    const sessionIsLocked = isSessionLocked(currentRace, currentSession);
 
     // Filter predictions to show
     const lockedPredictions = allPredictions.filter(p => {

@@ -15,7 +15,8 @@ import {
   SESSION_KEYS,
   SESSION_LABELS,
   SESSION_FULL_LABELS,
-  getTeamById
+  getTeamById,
+  isSessionLocked
 } from './seed.js';
 import { getDriver, setRaceDriverContext, clearRaceDriverContext } from './drivers.js';
 import { calculateSessionScore } from './scoring.js';
@@ -829,7 +830,7 @@ export async function openAdminExportModal(initialRaceId = null, initialSessionK
       ]);
 
       const isVoided = currentRaceObj.cancelledSessions?.[sKey] === true;
-      const isLocked = currentRaceObj.status === 'locked' || currentRaceObj.status === 'completed' || currentRaceObj.sessionLocks?.[sKey] === true;
+      const isLocked = isSessionLocked(currentRaceObj, sKey);
 
       if (isVoided) {
         badgeEl.textContent = 'CANCELLED';

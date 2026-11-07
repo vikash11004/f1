@@ -13,7 +13,7 @@ import {
   getDocument,
   updateDocument
 } from './firebase.js';
-import { SESSION_KEYS } from './seed.js';
+import { SESSION_KEYS, isSessionLocked } from './seed.js';
 import { createTelemetrySVG, renderEmptyStateSVG } from './drivers.js';
 import {
   navigateTo,
@@ -89,8 +89,8 @@ async function renderDashboard() {
       }
     }
 
-    // Find active race (could be active or locked)
-    const activeRace = races.find(r => r.status === 'active' || r.status === 'locked');
+    // Find active race (could be active, locked, or a completed race with an admin-unlocked session)
+    const activeRace = races.find(r => r.status === 'active' || r.status === 'locked' || (r.status === 'completed' && (SESSION_KEYS[r.weekendType] || SESSION_KEYS.standard).some(s => !isSessionLocked(r, s))));
     
     // Find last completed race
     const completedRaces = races.filter(r => r.status === 'completed');
@@ -232,7 +232,9 @@ async function renderDashboard() {
     // --- CTA ---
     const ctaContainer = document.getElementById('dashboard-cta');
     if (activeRace && !admin) {
-      const isLocked = activeRace.status === 'locked';
+      const sessions = SESSION_KEYS[activeRace.weekendType] || SESSION_KEYS.standard;
+      const isLocked = sessions.every(s => isSessionLocked(activeRace, s));
+      const firstOpen = sessions.find(s => !isSessionLocked(activeRace, s)) || sessions[0];
       ctaContainer.innerHTML = `
         <div class="card card-cta animate-card-enter" id="cta-predict" style="margin-top: var(--space-4);">
           <div class="card-body" style="display: flex; align-items: center; justify-content: space-between;">
@@ -245,8 +247,7 @@ async function renderDashboard() {
         </div>
       `;
       document.getElementById('cta-predict')?.addEventListener('click', () => {
-        const sessions = SESSION_KEYS[activeRace.weekendType];
-        navigateTo('predict', activeRace.id, sessions[0]);
+        navigateTo('predict', activeRace.id, firstOpen);
       });
     } else if (activeRace && admin) {
       const isLocked = activeRace.status === 'locked';
